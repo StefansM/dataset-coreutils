@@ -19,7 +19,7 @@ struct QueryPlan {
     std::optional<OrderFragment> order = std::nullopt;
     virtual ~QueryPlan() = default;
 
-    std::optional<ParameterisedQuery> query() const {
+    std::optional<ParameterisedQuery> generate_query() const {
         if (!select) {
             std::cerr << "No 'SELECT' clause present in query plan." << std::endl;
             return std::nullopt;
@@ -28,29 +28,37 @@ struct QueryPlan {
         std::stringstream query_buf;
         std::vector<QueryParam> parameters;
 
-        query_buf << select->get_fragment();
-
-        // TODO: Generic accumulator
-        if (where) {
-            query_buf << where->get_fragment();
-            auto params = where->get_params();
-            parameters.insert(parameters.end(), params.begin(), params.end());
-        }
-
-        if (order) {
-            query_buf << order->get_fragment();
-            auto params = order->get_params();
-        }
-
-        if (limit) {
-            query_buf << limit->get_fragment();
-            auto params = limit->get_params();
-            parameters.insert(parameters.end(), params.begin(), params.end());
-        }
+        accumulate(query_buf, parameters, select);
+        accumulate(query_buf, parameters, where);
+        accumulate(query_buf, parameters, order);
+        accumulate(query_buf, parameters, limit);
 
         ParameterisedQuery query {query_buf.str(), parameters};
         return query;
     }
+
+private:
+    template <typename T>
+    void accumulate(
+            std::stringstream &query_buf,
+            std::vector<QueryParam> &parameters,
+            const std::optional<T> &fragment) const {
+
+        if (fragment) {
+            accumulate(query_buf, parameters, *fragment);
+        }
+    }
+
+    void accumulate(
+            std::stringstream &query_buf,
+            std::vector<QueryParam> &parameters,
+            const QueryFragment &fragment) const {
+
+        query_buf << fragment.get_fragment();
+        auto params = fragment.get_params();
+        parameters.insert(parameters.end(), params.begin(), params.end());
+    }
+
 };
 
 #endif /* QUERYPLAN_H_ */

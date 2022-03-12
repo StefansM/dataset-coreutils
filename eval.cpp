@@ -50,15 +50,14 @@ int main(int argc, char **argv) {
         std::cout << row.GetValue<std::string>(0) << ": " << row.GetValue<std::string>(1) << std::endl;
     }
 
-    auto query = query_plan->query();
+    auto query = query_plan->generate_query();
     if (!query) {
         return 1;
     }
 
-    std::string query_str = query->query;
-    std::vector<QueryParam> query_params = query->params;
+    auto [query_str, query_params] = *query;
 
-    std::cout << query_str << std::endl;
+    std::cout << "Generated query: " << std::endl << query_str << std::endl << std::endl;
 
     auto prepared_statement = con.Prepare(query_str);
     if (!prepared_statement->success) {
