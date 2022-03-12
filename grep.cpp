@@ -21,7 +21,9 @@ public:
         description_.add_options()
             ("field,f", po::value(&field_), "Field to search.")
             ("value,v", po::value(&value_str_), "Value to search for.")
-            ("predicate,p", po::value(&predicate_)->default_value("LIKE"), "Predicate in the search ('=', 'LIKE', etc).")
+            ("predicate,p", po::value(&predicate_), "Predicate in the search ('=', 'LIKE', etc).")
+            ("integer,i", po::bool_switch(&is_integer_), "Value is an integer column.")
+            ("text,t", po::bool_switch(&is_text_), "Value is an text column.")
         ;
         add_positional_argument("field", 1, 1);
         add_positional_argument("value", 1, 1);
@@ -38,8 +40,37 @@ public:
             return false;
         }
 
-        // TODO: Handle other types
-        value_ = std::make_unique<QueryParam>(value_str_);
+        if (is_integer_ && is_text_) {
+            std::cerr << "Only one of 'integer' or 'text' may be specified." << std::endl;
+            return false;
+        }
+
+        if (is_integer_) {
+            // Sensible default operator for ints and strings.
+            if (predicate_.empty()) {
+                predicate_ = "=";
+            }
+
+            try {
+                value_ = std::make_unique<QueryParam>(std::stoll(value_str_));
+            } catch (const std::exception &e) {
+                std::cerr << "Couldn't convert '" << value_str_ << "' to number: " << e.what() << std::endl;
+                return false;
+            }
+
+        } else if (is_text_) {
+            if (predicate_.empty()) {
+                predicate_ = "SIMILAR TO";
+            }
+
+            value_ = std::make_unique<QueryParam>(value_str_);
+        } else {
+            if (predicate_.empty()) {
+                predicate_ = "LIKE";
+            }
+
+            value_ = std::make_unique<QueryParam>(QueryParam::unknown(value_str_));
+        }
 
         return true;
     }
@@ -53,6 +84,9 @@ private:
     std::string value_str_;
     std::string predicate_;
     std::unique_ptr<QueryParam> value_;
+
+    bool is_integer_ = false;
+    bool is_text_ = false;
 };
 
 

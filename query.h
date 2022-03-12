@@ -94,9 +94,7 @@ public:
     {}
 
     void add_condition(std::string column, std::string predicate, QueryParam value) {
-        // TODO: Emplace?
-        Condition c {column, predicate, value};
-        conditions_.push_back(c);
+        conditions_.push_back({column, predicate, value});
     }
 
     std::vector<Condition> get_conditions() const { return conditions_; }
@@ -132,18 +130,24 @@ private:
 
 class LimitFragment : public QueryFragment {
 public:
-    LimitFragment(std::uint64_t limit)
+    LimitFragment(std::uint32_t limit)
         : limit_(limit)
     {}
 
     std::string get_fragment() const override {
         std::stringstream stream;
-        stream << "LIMIT " << limit_;
+        stream << "\n LIMIT ?";
         return stream.str();
     }
 
+    std::vector<QueryParam> get_params() const override {
+        return { QueryParam(static_cast<int64_t>(limit_)) };
+    }
+
+    std::uint32_t get_limit() const { return limit_; }
+
 private:
-    std::uint64_t limit_;
+    std::uint32_t limit_;
 };
 
 class OrderFragment : public QueryFragment {

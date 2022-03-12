@@ -97,22 +97,35 @@ private:
     QueryParamSerDes param_serdes;
 };
 
+class LimitSerDes {
+public:
+    Json::Value encode(const LimitFragment &fragment) {
+        Json::Value value;
+        value["limit"] = fragment.get_limit();
+        return value;
+    }
+
+    LimitFragment decode(const Json::Value &json) {
+        return LimitFragment(json["limit"].asUInt());
+    }
+};
+
 class QueryPlanSerDes {
 public:
     Json::Value encode(const QueryPlan &query_plan) {
         Json::Value root;
+        root["select"] = Json::Value::null;
+        root["where"] = Json::Value::null;
+        root["limit"] = Json::Value::null;
 
-        if (query_plan.select) {
+        if (query_plan.select)
             root["select"] = SelectSerDes().encode(*query_plan.select);
-        } else {
-            root["select"] = Json::Value::null;
-        }
 
-        if (query_plan.where) {
+        if (query_plan.where)
             root["where"] = WhereSerDes().encode(*query_plan.where);
-        } else {
-            root["where"] = Json::Value::null;
-        }
+
+        if (query_plan.limit)
+            root["limit"] = LimitSerDes().encode(*query_plan.limit);
 
         return root;
     }
@@ -121,14 +134,16 @@ public:
         QueryPlan query_plan;
 
         auto select = root["select"];
-        if (select != Json::Value::null) {
+        if (select != Json::Value::null)
             query_plan.select = SelectSerDes().decode(select);
-        }
 
         auto where = root["where"];
-        if (where != Json::Value::null) {
+        if (where != Json::Value::null)
             query_plan.where = WhereSerDes().decode(where);
-        }
+
+        auto limit = root["limit"];
+        if (limit != Json::Value::null)
+            query_plan.limit = LimitSerDes().decode(limit);
 
         return query_plan;
     }

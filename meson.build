@@ -39,6 +39,14 @@ grep_exe = executable(
   dependencies : [jsondep, boostdep],
 )
 
+head_exe = executable(
+  'head',
+  'head.cpp',
+  common_files,
+  install : true,
+  dependencies : [jsondep, boostdep],
+)
+
 eval_exe = executable(
   'eval',
   'eval.cpp',
