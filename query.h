@@ -8,6 +8,8 @@
 
 enum class ParamType { NUMERIC, TEXT, UNKNOWN };
 
+using TypeMap = std::map<std::string, ParamType>;
+
 class QueryParam {
 public:
     QueryParam(std::string text)
@@ -82,11 +84,8 @@ private:
 
 struct Condition {
     std::string column;
-    std::string pattern;
-
-    std::string to_string() const {
-        return column + " SIMILAR TO '.*" + pattern + ".*'";
-    }
+    std::string predicate;
+    QueryParam value;
 };
 
 class WhereFragment : public QueryFragment {
@@ -94,9 +93,10 @@ public:
     WhereFragment()
     {}
 
-    void add_condition(std::string column, std::string pattern) {
-        Condition c {column, pattern};
-        conditions_.push_back(std::move(c));
+    void add_condition(std::string column, std::string predicate, QueryParam value) {
+        // TODO: Emplace?
+        Condition c {column, predicate, value};
+        conditions_.push_back(c);
     }
 
     std::vector<Condition> get_conditions() const { return conditions_; }
@@ -110,7 +110,7 @@ public:
             } else {
                 stream << "\n   AND ";
             }
-            stream << c.column << " LIKE ?";
+            stream << c.column << " " << c.predicate << " ?";
         }
         return stream.str();
     }
@@ -120,7 +120,7 @@ public:
         params.reserve(conditions_.size());
 
         for (const auto &c : conditions_) {
-            params.emplace_back(c.pattern);
+            params.emplace_back(c.value);
         }
 
         return params;

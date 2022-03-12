@@ -20,9 +20,11 @@ public:
 
         description_.add_options()
             ("field,f", po::value(&field_), "Field to search.")
-            ("pattern,p", po::value(&pattern_), "Pattern to search against.")
+            ("value,v", po::value(&value_str_), "Value to search for.")
+            ("predicate,p", po::value(&predicate_)->default_value("LIKE"), "Predicate in the search ('=', 'LIKE', etc).")
         ;
-        add_positional_argument("pattern", 1, -1);
+        add_positional_argument("field", 1, 1);
+        add_positional_argument("value", 1, 1);
     }
 
     virtual bool parse(int argc, char **argv) override {
@@ -31,20 +33,26 @@ public:
             return parent_result;
         }
 
-        if (field_.empty() || pattern_.empty()) {
-            std::cerr << "Both 'field' and 'pattern' option must be supplied." << std::endl;
+        if (field_.empty() || value_str_.empty()) {
+            std::cerr << "Both 'field' and 'value' option must be supplied." << std::endl;
             return false;
         }
+
+        // TODO: Handle other types
+        value_ = std::make_unique<QueryParam>(value_str_);
 
         return true;
     }
 
     std::string get_field() const { return field_; }
-    std::string get_pattern() const { return pattern_; }
+    std::string get_predicate() const { return predicate_; }
+    QueryParam get_value() const { return QueryParam(*value_); }
 
 private:
     std::string field_;
-    std::string pattern_;
+    std::string value_str_;
+    std::string predicate_;
+    std::unique_ptr<QueryParam> value_;
 };
 
 
@@ -63,7 +71,7 @@ int main(int argc, char **argv) {
     if (!query_plan->where) {
         query_plan->where.emplace();
     }
-    query_plan->where->add_condition(options.get_field(), options.get_pattern());
+    query_plan->where->add_condition(options.get_field(), options.get_predicate(), options.get_value());
 
     dump_query_plan(*query_plan, std::cout);
     return 0;

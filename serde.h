@@ -3,6 +3,40 @@
 
 #include <json/json.h>
 
+class QueryParamSerDes {
+
+public:
+    Json::Value encode(const QueryParam &fragment) {
+        Json::Value value;
+        switch (fragment.type) {
+            case ParamType::NUMERIC:
+                value["type"] = "NUMERIC";
+                value["value"] = fragment.get<std::int64_t>();
+                break;
+            case ParamType::TEXT:
+                value["type"] = "TEXT";
+                value["value"] = fragment.get<std::string>();
+                break;
+            case ParamType::UNKNOWN:
+                value["type"] = "UNKNOWN";
+                value["value"] = fragment.get<std::string>();
+                break;
+        }
+        return value;
+    }
+
+    QueryParam decode(const Json::Value &fragment) {
+        auto type = fragment["type"].asString();
+        auto value = fragment["value"];
+        if (type == "NUMERIC")
+            return QueryParam(value.asInt64());
+        else if (type == "TEXT")
+            return QueryParam(value.asString());
+        else
+            return QueryParam::unknown(value.asString());
+    }
+};
+
 class SelectSerDes {
 public:
     Json::Value encode(const SelectFragment &fragment) {
@@ -37,7 +71,8 @@ public:
         for (const auto &cond : fragment.get_conditions()) {
             Json::Value json_cond;
             json_cond["column"] = cond.column;
-            json_cond["pattern"] = cond.pattern;
+            json_cond["predicate"] = cond.predicate;
+            json_cond["value"] = param_serdes.encode(cond.value);
 
             value["conditions"][i++] = json_cond;
         }
@@ -49,13 +84,17 @@ public:
         WhereFragment fragment;
         for (const auto &cond : json["conditions"]) {
             auto column = cond["column"].asString();
-            auto pattern = cond["pattern"].asString();
+            auto predicate = cond["predicate"].asString();
+            auto value = param_serdes.decode(cond["value"]);
 
-            fragment.add_condition(column, pattern);
+            fragment.add_condition(column, predicate, value);
         }
 
         return fragment;
     }
+
+private:
+    QueryParamSerDes param_serdes;
 };
 
 class QueryPlanSerDes {
