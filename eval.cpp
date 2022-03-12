@@ -50,13 +50,37 @@ int main(int argc, char **argv) {
         std::cout << row.GetValue<std::string>(0) << ": " << row.GetValue<std::string>(1) << std::endl;
     }
 
-    auto query_str = query_plan->query();
-    if (!query_str) {
+    auto query = query_plan->query();
+    if (!query) {
         return 1;
     }
 
-    std::cout << *query_str << std::endl;
-    auto result = con.Query(*query_str);
+    std::string query_str = query->query;
+    std::vector<QueryParam> query_params = query->params;
+
+    std::cout << query_str << std::endl;
+
+    auto prepared_statement = con.Prepare(query_str);
+    if (!prepared_statement->success) {
+        std::cerr << "Error constructing statement: " << prepared_statement->error << std::endl;
+        return 2;
+    }
+
+    std::vector<duckdb::Value> duckdb_params;
+    for (const auto &p : query_params) {
+        switch (p.type) {
+            case ParamType::NUMERIC:
+                duckdb_params.push_back(duckdb::Value::CreateValue<std::int64_t>(p.get<std::int64_t>()));
+                break;
+
+            case ParamType::TEXT:
+            case ParamType::UNKNOWN:
+                duckdb_params.push_back(duckdb::Value::CreateValue<std::string>(p.get<std::string>()));
+                break;
+        }
+    }
+
+    auto result = prepared_statement->Execute(duckdb_params, false);
     if (!result->success) {
         std::cerr << "Error querying DuckDB: " << result->error << std::endl;
         return 2;

@@ -1,10 +1,51 @@
 #ifndef QUERY_H_
 #define QUERY_H_
 
+#include <cstdint>
+#include <variant>
+#include <string>
+#include <algorithm>
+
+enum class ParamType { NUMERIC, TEXT, UNKNOWN };
+
+class QueryParam {
+public:
+    QueryParam(std::string text)
+        : type(ParamType::TEXT)
+        , value(std::move(text)) {}
+
+    QueryParam(std::int64_t number)
+        : type(ParamType::NUMERIC)
+        , value(number) {}
+
+    static QueryParam unknown(std::string text) {
+        return QueryParam(text, ParamType::UNKNOWN);
+    }
+
+    template <typename T>
+    T get() const {
+        return std::get<T>(value);
+    }
+
+    ParamType type;
+
+private:
+    QueryParam(std::string text, ParamType type)
+        : type(type)
+        , value(std::move(text)) {}
+
+    std::variant<std::string, std::int64_t> value;
+};
+
 
 class QueryFragment {
 public:
     virtual std::string get_fragment() const = 0;
+
+    virtual std::vector<QueryParam> get_params() const {
+        return {};
+    }
+
     virtual ~QueryFragment() = default;
 };
 
@@ -67,11 +108,22 @@ public:
             if (i++ == 0) {
                 stream << "\n WHERE ";
             } else {
-                stream << "\n  AND ";
+                stream << "\n   AND ";
             }
-            stream << c.to_string();
+            stream << c.column << " LIKE ?";
         }
         return stream.str();
+    }
+
+    std::vector<QueryParam> get_params() const override {
+        std::vector<QueryParam> params;
+        params.reserve(conditions_.size());
+
+        for (const auto &c : conditions_) {
+            params.emplace_back(c.pattern);
+        }
+
+        return params;
     }
 
 private:
