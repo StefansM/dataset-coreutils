@@ -5,6 +5,9 @@ project('bash-functions', 'cpp',
 
 jsondep = dependency('jsoncpp')
 boostdep = dependency('boost', modules : ['program_options'])
+arrowdep = dependency('arrow')
+arrowdsdep = dependency('arrow-dataset')
+parquetdep = dependency('parquet')
 
 cc =  meson.get_compiler('cpp')
 duckdbdep = cc.find_library('duckdb')
@@ -60,5 +63,5 @@ eval_exe = executable(
   'eval.cpp',
   common_files,
   install : true,
-  dependencies : [jsondep, boostdep, duckdbdep],
+  dependencies : [jsondep, boostdep, duckdbdep, arrowdep, arrowdsdep],
 )

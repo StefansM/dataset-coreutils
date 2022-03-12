@@ -3,6 +3,13 @@
 #include <vector>
 #include <cstdint>
 
+#include <arrow/c/abi.h>
+#include <arrow/c/bridge.h>
+#include <arrow/dataset/api.h>
+#include <arrow/filesystem/api.h>
+#include <arrow/io/api.h>
+#include <arrow/record_batch.h>
+#include <arrow/table.h>
 #include <duckdb.hpp>
 
 #include "query.h"
@@ -55,12 +62,62 @@ int main(int argc, char **argv) {
         }
     }
 
-    auto result = prepared_statement->Execute(duckdb_params, false);
+    auto result = prepared_statement->Execute(duckdb_params, true);
     if (!result->success) {
         std::cerr << "Error querying DuckDB: " << result->error << std::endl;
         return 2;
     }
 
     result->Print();
+
+    ArrowSchema duck_arrow_schema;
+    result->ToArrowSchema(&duck_arrow_schema);
+
+    auto arrow_schema_result = arrow::ImportSchema(&duck_arrow_schema);
+    if (!arrow_schema_result.ok()) {
+        std::cerr << "Error retrieving Arrow schema from DuckDb result: " << arrow_schema_result.status().ToString() << std::endl;
+        return 2;
+    }
+
+    auto arrow_schema = *arrow_schema_result;
+    auto filesystem = std::make_shared<arrow::fs::LocalFileSystem>();
+    auto file_format = std::make_shared<arrow::dataset::ParquetFileFormat>();
+    auto output_stream = arrow::io::FileOutputStream::Open("test.parquet");
+    if (!output_stream.ok()) {
+        std::cerr << "Error constructing output stream: " << output_stream.status().ToString() << std::endl;
+        return 2;
+    }
+
+    auto writer_options = file_format->DefaultWriteOptions();
+    auto writer_result = file_format->MakeWriter(
+            *output_stream,
+            arrow_schema,
+            writer_options,
+            {filesystem, "foo"});
+
+    if (!writer_result.ok()) {
+        std::cerr << "Error constructing writer: " << writer_result.status().ToString() << std::endl;
+        return 2;
+    }
+
+    auto writer = *writer_result;
+    while (true) {
+        auto data_chunk = result->Fetch();
+        if (!data_chunk || data_chunk->size() == 0) {
+            break;
+        }
+
+        ArrowArray arrow_array;
+        data_chunk->ToArrowArray(&arrow_array);
+
+        auto batch_result = arrow::ImportRecordBatch(&arrow_array, arrow_schema);
+        if (!batch_result.ok()) {
+            std::cerr << "Error retrieving batch: " << batch_result.status().ToString() << std::endl;
+            break;
+        }
+
+        auto write_result = writer->Write(*batch_result);
+    }
+
     return 0;
 }
