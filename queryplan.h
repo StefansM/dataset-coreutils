@@ -13,11 +13,10 @@ struct ParameterisedQuery {
 };
 
 struct QueryPlan {
-    std::optional<SelectFragment> select = std::nullopt;
-    std::optional<WhereFragment> where = std::nullopt;
-    std::optional<LimitFragment> limit = std::nullopt;
-    std::optional<OrderFragment> order = std::nullopt;
-    virtual ~QueryPlan() = default;
+    std::optional<SelectFragment> select;
+    std::optional<WhereFragment> where;
+    std::optional<LimitFragment> limit;
+    std::optional<OrderFragment> order;
 
     std::optional<ParameterisedQuery> generate_query() const {
         if (!select) {
