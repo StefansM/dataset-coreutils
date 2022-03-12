@@ -2,16 +2,13 @@
 #include <string>
 #include <vector>
 
-#include <json/json.h>
+#include <boost/program_options.hpp>
 
 #include "query.h"
 #include "queryplan.h"
 #include "serde.h"
 #include "options.h"
 
-#define PROJECT_NAME "bash-functions"
-
-#include <boost/program_options.hpp>
 
 class CutOptions : public Options {
 public:
