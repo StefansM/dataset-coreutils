@@ -151,6 +151,7 @@ private:
 };
 
 class OrderFragment : public QueryFragment {
+public:
     OrderFragment(std::vector<std::string> columns, bool reverse)
         : columns_(std::move(columns))
         , reverse_(reverse)
@@ -160,17 +161,20 @@ class OrderFragment : public QueryFragment {
         const char *direction = reverse_ ? "DESC" : "ASC";
 
         std::stringstream stream;
-        stream << "\nORDER BY";
+        stream << "\n ORDER BY ";
 
         int i = 0;
         for (const auto &col : columns_) {
             if (i++ != 0) {
-                stream << "     , ";
+                stream << "\n     , ";
             }
-            stream << col << " " << direction << "\n";
+            stream << col << " " << direction;
         }
         return stream.str();
     }
+
+    std::vector<std::string> get_columns() const { return columns_; }
+    bool reversed() const { return reverse_; }
 
 private:
     std::vector<std::string> columns_;

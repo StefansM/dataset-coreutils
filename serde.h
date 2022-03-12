@@ -110,6 +110,30 @@ public:
     }
 };
 
+class OrderSerDes {
+public:
+    Json::Value encode(const OrderFragment &fragment) {
+        Json::Value value;
+
+        value["reversed"] = fragment.reversed();
+        value["fields"] = Json::Value();
+
+        int i = 0;
+        for (const auto &f : fragment.get_columns())
+            value["fields"][i++] = f;
+
+        return value;
+    }
+
+    OrderFragment decode(const Json::Value &json) {
+        std::vector<std::string> columns;
+        for (const auto &cond : json["fields"])
+            columns.push_back(cond.asString());
+
+        return OrderFragment(columns, json["reversed"].asBool());
+    }
+};
+
 class QueryPlanSerDes {
 public:
     Json::Value encode(const QueryPlan &query_plan) {
@@ -117,6 +141,7 @@ public:
         root["select"] = Json::Value::null;
         root["where"] = Json::Value::null;
         root["limit"] = Json::Value::null;
+        root["order"] = Json::Value::null;
 
         if (query_plan.select)
             root["select"] = SelectSerDes().encode(*query_plan.select);
@@ -126,6 +151,9 @@ public:
 
         if (query_plan.limit)
             root["limit"] = LimitSerDes().encode(*query_plan.limit);
+
+        if (query_plan.order)
+            root["order"] = OrderSerDes().encode(*query_plan.order);
 
         return root;
     }
@@ -144,6 +172,10 @@ public:
         auto limit = root["limit"];
         if (limit != Json::Value::null)
             query_plan.limit = LimitSerDes().decode(limit);
+
+        auto order = root["order"];
+        if (order != Json::Value::null)
+            query_plan.order = OrderSerDes().decode(order);
 
         return query_plan;
     }

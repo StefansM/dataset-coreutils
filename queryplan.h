@@ -16,6 +16,7 @@ struct QueryPlan {
     std::optional<SelectFragment> select = std::nullopt;
     std::optional<WhereFragment> where = std::nullopt;
     std::optional<LimitFragment> limit = std::nullopt;
+    std::optional<OrderFragment> order = std::nullopt;
     virtual ~QueryPlan() = default;
 
     std::optional<ParameterisedQuery> query() const {
@@ -34,6 +35,11 @@ struct QueryPlan {
             query_buf << where->get_fragment();
             auto params = where->get_params();
             parameters.insert(parameters.end(), params.begin(), params.end());
+        }
+
+        if (order) {
+            query_buf << order->get_fragment();
+            auto params = order->get_params();
         }
 
         if (limit) {

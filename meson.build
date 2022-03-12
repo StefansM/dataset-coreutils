@@ -47,6 +47,14 @@ head_exe = executable(
   dependencies : [jsondep, boostdep],
 )
 
+sort_exe = executable(
+  'sort',
+  'sort.cpp',
+  common_files,
+  install : true,
+  dependencies : [jsondep, boostdep],
+)
+
 eval_exe = executable(
   'eval',
   'eval.cpp',
