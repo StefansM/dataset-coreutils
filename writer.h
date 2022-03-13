@@ -17,13 +17,16 @@ public:
     virtual ~Writer() = default;
 };
 
-class ParquetWriter : public Writer {
-public:
-    virtual ~ParquetWriter() = default;
+class ArrowDatasetWriter : public Writer {
+protected:
+    virtual ~ArrowDatasetWriter() = default;
 
-    ParquetWriter(std::shared_ptr<arrow::Schema> schema, std::string path) {
+    ArrowDatasetWriter(
+            std::shared_ptr<arrow::Schema> schema,
+            std::string path,
+            std::shared_ptr<arrow::dataset::FileFormat> file_format) {
+
         auto fs = std::make_shared<arrow::fs::LocalFileSystem>();
-        auto file_format = std::make_shared<arrow::dataset::ParquetFileFormat>();
         auto file_options = file_format->DefaultWriteOptions();
         auto stream = assign_or_raise(arrow::io::FileOutputStream::Open(path));
 
@@ -32,6 +35,7 @@ public:
         );
     }
 
+public:
     void write(std::shared_ptr<arrow::RecordBatch> batch) override {
         writer_->Write(batch);
     }
@@ -40,27 +44,28 @@ private:
     std::shared_ptr<arrow::dataset::FileWriter> writer_;
 };
 
-class CsvWriter : public Writer {
+class ParquetWriter : public ArrowDatasetWriter {
+public:
+    virtual ~ParquetWriter() = default;
+
+    ParquetWriter(std::shared_ptr<arrow::Schema> schema, std::string path)
+        : ArrowDatasetWriter(
+                schema,
+                path,
+                std::make_shared<arrow::dataset::ParquetFileFormat>()
+          ) {}
+};
+
+class CsvWriter : public ArrowDatasetWriter{
 public:
     virtual ~CsvWriter() = default;
 
-    CsvWriter(std::shared_ptr<arrow::Schema> schema, std::string path) {
-        auto fs = std::make_shared<arrow::fs::LocalFileSystem>();
-        auto file_format = std::make_shared<arrow::dataset::CsvFileFormat>();
-        auto file_options = file_format->DefaultWriteOptions();
-        auto stream = assign_or_raise(arrow::io::FileOutputStream::Open(path));
-
-        writer_ = assign_or_raise(
-            file_format->MakeWriter(stream, schema, file_options, {fs, path})
-        );
-    }
-
-    void write(std::shared_ptr<arrow::RecordBatch> batch) override {
-        writer_->Write(batch);
-    }
-
-private:
-    std::shared_ptr<arrow::dataset::FileWriter> writer_;
+    CsvWriter(std::shared_ptr<arrow::Schema> schema, std::string path)
+        : ArrowDatasetWriter(
+                schema,
+                path,
+                std::make_shared<arrow::dataset::CsvFileFormat>()
+          ) {}
 };
 
 #endif /* WRITER_H_ */
