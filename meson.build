@@ -19,7 +19,7 @@ common_files = [
 ]
 
 cat_exe = executable(
-  'cat',
+  'dcat',
   'cat.cpp',
   common_files,
   install : true,
@@ -27,7 +27,7 @@ cat_exe = executable(
 )
 
 cut_exe = executable(
-  'cut',
+  'dcut',
   'cut.cpp',
   common_files,
   install : true,
@@ -35,7 +35,7 @@ cut_exe = executable(
 )
 
 grep_exe = executable(
-  'grep',
+  'dgrep',
   'grep.cpp',
   common_files,
   install : true,
@@ -43,7 +43,7 @@ grep_exe = executable(
 )
 
 head_exe = executable(
-  'head',
+  'dhead',
   'head.cpp',
   common_files,
   install : true,
@@ -51,7 +51,7 @@ head_exe = executable(
 )
 
 sort_exe = executable(
-  'sort',
+  'dsort',
   'sort.cpp',
   common_files,
   install : true,
@@ -59,7 +59,7 @@ sort_exe = executable(
 )
 
 eval_exe = executable(
-  'eval',
+  'deval',
   'eval.cpp',
   common_files,
   install : true,

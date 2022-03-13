@@ -167,7 +167,7 @@ int main(int argc, char **argv) {
     duckdb::Connection con(db);
     auto [query_str, query_params] = *query;
 
-    std::cout << "Generated query: " << std::endl << query_str << std::endl << std::endl;
+    std::cerr << "Generated query: " << std::endl << query_str << std::endl << std::endl;
     try {
         auto prepared_statement = dd_check(con.Prepare(query_str));
         auto duckdb_params = convert_params_to_duckdb(query_params);
