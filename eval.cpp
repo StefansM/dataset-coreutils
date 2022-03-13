@@ -1,3 +1,4 @@
+#include <exception>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -12,11 +13,68 @@
 #include <arrow/table.h>
 #include <duckdb.hpp>
 
+#include "arrow_result.h"
 #include "query.h"
 #include "queryplan.h"
 #include "serde.h"
 #include "options.h"
+#include "writer.h"
 
+
+struct DuckDbException : public std::runtime_error {
+    DuckDbException(std::string msg) : std::runtime_error(msg) {}
+};
+
+template <typename T>
+T dd_check(T result) {
+    if (!result->success) {
+        throw DuckDbException("Error doing DuckDb action. " + result->error);
+    }
+    return result;
+}
+
+static std::vector<duckdb::Value> convert_params_to_duckdb(const std::vector<QueryParam> &query_params) {
+    std::vector<duckdb::Value> duckdb_params;
+
+    int i = 0;
+    for (const auto &p : query_params) {
+        duckdb::Value value;
+        switch (p.type) {
+            case ParamType::NUMERIC:
+                value = duckdb::Value::CreateValue<std::int64_t>(p.get<std::int64_t>());
+                break;
+
+            case ParamType::TEXT:
+            case ParamType::UNKNOWN:
+                value = duckdb::Value::CreateValue<std::string>(p.get<std::string>());
+                break;
+
+            default:
+                throw DuckDbException("Unable to convert param " + std::to_string(i) + " to DuckDb type.");
+        }
+        duckdb_params.push_back(value);
+        ++i;
+    }
+
+    return duckdb_params;
+}
+
+static std::shared_ptr<arrow::Schema> duckdb_schema_to_arrow(std::unique_ptr<duckdb::QueryResult> &result) {
+    ArrowSchema duck_arrow_schema;
+    result->ToArrowSchema(&duck_arrow_schema);
+
+    return assign_or_raise(arrow::ImportSchema(&duck_arrow_schema));
+}
+
+
+std::shared_ptr<arrow::RecordBatch> chunk_to_record_batch(
+        std::unique_ptr<duckdb::DataChunk> &data_chunk,
+        std::shared_ptr<arrow::Schema> arrow_schema) {
+    ArrowArray arrow_array;
+    data_chunk->ToArrowArray(&arrow_array);
+
+    return assign_or_raise(arrow::ImportRecordBatch(&arrow_array, arrow_schema));
+}
 
 int main(int argc, char **argv) {
     Options options;
@@ -30,93 +88,35 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    duckdb::DuckDB db(nullptr);
-    duckdb::Connection con(db);
-
     auto query = query_plan->generate_query();
     if (!query) {
         return 1;
     }
 
+    duckdb::DuckDB db(nullptr);
+    duckdb::Connection con(db);
     auto [query_str, query_params] = *query;
 
     std::cout << "Generated query: " << std::endl << query_str << std::endl << std::endl;
+    try {
+        auto prepared_statement = dd_check(con.Prepare(query_str));
+        auto duckdb_params = convert_params_to_duckdb(query_params);
+        auto result = dd_check(prepared_statement->Execute(duckdb_params, true));
+        auto arrow_schema = duckdb_schema_to_arrow(result);
+        auto writer = ParquetWriter(arrow_schema, "test.parquet");
 
-    auto prepared_statement = con.Prepare(query_str);
-    if (!prepared_statement->success) {
-        std::cerr << "Error constructing statement: " << prepared_statement->error << std::endl;
-        return 2;
-    }
-
-    std::vector<duckdb::Value> duckdb_params;
-    for (const auto &p : query_params) {
-        switch (p.type) {
-            case ParamType::NUMERIC:
-                duckdb_params.push_back(duckdb::Value::CreateValue<std::int64_t>(p.get<std::int64_t>()));
+        while (true) {
+            auto data_chunk = result->Fetch();
+            if (!data_chunk || data_chunk->size() == 0) {
                 break;
+            }
 
-            case ParamType::TEXT:
-            case ParamType::UNKNOWN:
-                duckdb_params.push_back(duckdb::Value::CreateValue<std::string>(p.get<std::string>()));
-                break;
+            auto batch_result = chunk_to_record_batch(data_chunk, arrow_schema);
+            writer.write(batch_result);
         }
-    }
-
-    auto result = prepared_statement->Execute(duckdb_params, true);
-    if (!result->success) {
-        std::cerr << "Error querying DuckDB: " << result->error << std::endl;
+    } catch (const std::runtime_error &error) {
+        std::cerr << "Error executing statement or writing results. " << error.what() << std::endl;
         return 2;
-    }
-
-    result->Print();
-
-    ArrowSchema duck_arrow_schema;
-    result->ToArrowSchema(&duck_arrow_schema);
-
-    auto arrow_schema_result = arrow::ImportSchema(&duck_arrow_schema);
-    if (!arrow_schema_result.ok()) {
-        std::cerr << "Error retrieving Arrow schema from DuckDb result: " << arrow_schema_result.status().ToString() << std::endl;
-        return 2;
-    }
-
-    auto arrow_schema = *arrow_schema_result;
-    auto filesystem = std::make_shared<arrow::fs::LocalFileSystem>();
-    auto file_format = std::make_shared<arrow::dataset::ParquetFileFormat>();
-    auto output_stream = arrow::io::FileOutputStream::Open("test.parquet");
-    if (!output_stream.ok()) {
-        std::cerr << "Error constructing output stream: " << output_stream.status().ToString() << std::endl;
-        return 2;
-    }
-
-    auto writer_options = file_format->DefaultWriteOptions();
-    auto writer_result = file_format->MakeWriter(
-            *output_stream,
-            arrow_schema,
-            writer_options,
-            {filesystem, "foo"});
-
-    if (!writer_result.ok()) {
-        std::cerr << "Error constructing writer: " << writer_result.status().ToString() << std::endl;
-        return 2;
-    }
-
-    auto writer = *writer_result;
-    while (true) {
-        auto data_chunk = result->Fetch();
-        if (!data_chunk || data_chunk->size() == 0) {
-            break;
-        }
-
-        ArrowArray arrow_array;
-        data_chunk->ToArrowArray(&arrow_array);
-
-        auto batch_result = arrow::ImportRecordBatch(&arrow_array, arrow_schema);
-        if (!batch_result.ok()) {
-            std::cerr << "Error retrieving batch: " << batch_result.status().ToString() << std::endl;
-            break;
-        }
-
-        auto write_result = writer->Write(*batch_result);
     }
 
     return 0;
