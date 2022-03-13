@@ -143,6 +143,25 @@ $ dcat "'nyc-taxi.parquet'" | dhead | deval -o output.csv
 $ dcat "'nyc-taxi.parquet'" | dhead | deval -o output.parquet -p
 ```
 
+## Putting it all together
+
+We can, for example, use the [NYC taxi dataset] (I'm using the Parquet version
+kindly hosted at `s3://ursa-labs-taxi-data`) to find people who used taxi
+vendor "1" and didn't tip, then show the top few furthest journeys:
+
+```console
+$ dcat "'nyc-taxi.parquet'" \
+    | dcut vendor_id pickup_at dropoff_at tip_amount trip_distance \
+    | dgrep vendor_id 1 \
+    | dgrep -i tip_amount 0 \
+    | dsort -r trip_distance \
+    | dhead \
+    | deval
+```
+
+This isn't very impressive because `deval` can't yet handle partitioned
+datasets, so this is limited to a single file at the moment.
+
 ## Next steps
 
 There are a few things I plan to improve:
@@ -161,9 +180,14 @@ There are a few things I plan to improve:
   an equivalent to the `parquet_scan` table function for partitioned datasets,
   or even a C++ API to do it.
 
-* Clean up the build directory and do some testing!
+* Clean up the build directory and write some tests.
+
+* Behaviour differs from the DuckDB CLI when working on multiple files. On
+  large datasets, `deval` seems to be trying to read it all into memory,
+  and sometimes isn't finding all the files that it should.
 
 [duckdb-arrow]: https://duckdb.org/2021/12/03/duck-arrow.html
 
 [Parquet]: https://parquet.apache.org/
 [DuckDb]: https://duckdb.org/
+[NYC taxi dataset]: https://www1.nyc.gov/site/tlc/about/tlc-trip-record-data.page
