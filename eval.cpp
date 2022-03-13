@@ -103,7 +103,7 @@ int main(int argc, char **argv) {
         auto duckdb_params = convert_params_to_duckdb(query_params);
         auto result = dd_check(prepared_statement->Execute(duckdb_params, true));
         auto arrow_schema = duckdb_schema_to_arrow(result);
-        auto writer = ParquetWriter(arrow_schema, "test.parquet");
+        auto writer = CsvWriter(arrow_schema, "out.csv");
 
         while (true) {
             auto data_chunk = result->Fetch();
