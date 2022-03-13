@@ -162,6 +162,19 @@ $ dcat "'nyc-taxi.parquet'" \
 This isn't very impressive because `deval` can't yet handle partitioned
 datasets, so this is limited to a single file at the moment.
 
+## Building
+
+The build system is [Meson]:
+
+```console
+$ meson setup builddir
+$ meson compile -C builddir
+$ meson install -C builddir
+```
+
+Prequisites: `arrow`, `duckdb` and `boost` (specifically
+`boost::program_options`).
+
 ## Next steps
 
 There are a few things I plan to improve:
@@ -170,7 +183,7 @@ There are a few things I plan to improve:
   formats and doesn't just pass a raw string that's dumbly interpreted by
   DuckDb.
 
-* Improve type detection in `dgrep`. Types should be inferred at query time
+* Improve type detection in `dgrep`. Types should be inferred at query timeG
   rather than specified in `dgrep`. Predicates can be specified in `dgrep`
   but a placeholder predicate should be passed through so a sensible default
   can be inferred at query time.
@@ -191,3 +204,4 @@ There are a few things I plan to improve:
 [Parquet]: https://parquet.apache.org/
 [DuckDb]: https://duckdb.org/
 [NYC taxi dataset]: https://www1.nyc.gov/site/tlc/about/tlc-trip-record-data.page
+[Meson]: https://mesonbuild.com/
