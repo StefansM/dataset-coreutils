@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <cstdint>
+#include <cstdio>
 
 #include <arrow/c/abi.h>
 #include <arrow/c/bridge.h>
@@ -11,6 +12,7 @@
 #include <arrow/io/api.h>
 #include <arrow/record_batch.h>
 #include <arrow/table.h>
+#include <boost/program_options.hpp>
 #include <duckdb.hpp>
 
 #include "arrow_result.h"
@@ -23,6 +25,74 @@
 
 struct DuckDbException : public std::runtime_error {
     DuckDbException(std::string msg) : std::runtime_error(msg) {}
+};
+
+class EvalOptions : public Options {
+public:
+    EvalOptions() {
+        namespace po = boost::program_options;
+
+        description_.add_options()
+            ("csv,c", po::bool_switch(&write_csv_), "Write results in CSV format.")
+            ("parquet,p", po::bool_switch(&write_parquet_), "Write results in Parquet format.")
+            ("out,o", po::value(&out_), "Write to this file instead of stdout.")
+        ;
+    }
+
+    virtual bool parse(int argc, char **argv) override {
+        bool parent_result = Options::parse(argc, argv);
+        if (!parent_result) {
+            return parent_result;
+        }
+
+        if (write_csv_ && write_parquet_) {
+            std::cerr << "Only one of 'integer' or 'text' may be specified." << std::endl;
+            return false;
+        }
+
+        // Default output format is CSV.
+        if (!write_csv_ && !write_parquet_) {
+            write_csv_ = true;
+        }
+
+        return true;
+    }
+
+    std::unique_ptr<Writer> get_writer(std::shared_ptr<arrow::Schema> schema) const {
+        if (out_.empty())
+            return stdout_writer(schema);
+        else
+            return file_writer(schema);
+    }
+
+private:
+    std::unique_ptr<Writer> stdout_writer(std::shared_ptr<arrow::Schema> schema) const {
+        int stdout_fd = -1;
+        stdout_fd = ::fileno(stdout);
+        if (stdout_fd == -1)
+            throw std::runtime_error("Unable to obtain fileno of stdout.");
+
+        if (write_csv_)
+            return std::make_unique<CsvWriter>(schema, stdout_fd);
+        else if (write_parquet_)
+            throw std::runtime_error("Parquet output requires a seekable stream; cannot write to stdout.");
+
+        throw std::logic_error("Invariant failure: Neither write_csv or write_parquet set.");
+    }
+
+    std::unique_ptr<Writer> file_writer(std::shared_ptr<arrow::Schema> schema) const {
+        if (write_csv_)
+            return std::make_unique<CsvWriter>(schema, out_);
+        else if (write_parquet_)
+            return std::make_unique<ParquetWriter>(schema, out_);
+
+        throw std::logic_error("Invariant failure: Neither write_csv or write_parquet set.");
+    }
+
+private:
+    bool write_csv_;
+    bool write_parquet_;
+    std::string out_;
 };
 
 template <typename T>
@@ -77,7 +147,7 @@ std::shared_ptr<arrow::RecordBatch> chunk_to_record_batch(
 }
 
 int main(int argc, char **argv) {
-    Options options;
+    EvalOptions options;
     if (!options.parse(argc, argv)) {
         return 1;
     }
@@ -103,7 +173,7 @@ int main(int argc, char **argv) {
         auto duckdb_params = convert_params_to_duckdb(query_params);
         auto result = dd_check(prepared_statement->Execute(duckdb_params, true));
         auto arrow_schema = duckdb_schema_to_arrow(result);
-        auto writer = CsvWriter(arrow_schema, "out.csv");
+        auto writer = options.get_writer(arrow_schema);
 
         while (true) {
             auto data_chunk = result->Fetch();
@@ -112,7 +182,7 @@ int main(int argc, char **argv) {
             }
 
             auto batch_result = chunk_to_record_batch(data_chunk, arrow_schema);
-            writer.write(batch_result);
+            writer->write(batch_result);
         }
     } catch (const std::runtime_error &error) {
         std::cerr << "Error executing statement or writing results. " << error.what() << std::endl;
