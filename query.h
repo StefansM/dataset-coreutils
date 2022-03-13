@@ -136,12 +136,10 @@ public:
 
     std::string get_fragment() const override {
         std::stringstream stream;
-        stream << "\n LIMIT ?";
+        // FIXME: When using a query parameter for limit across multiple Parquet
+        // files, I get an incorrect result compared to doing this.
+        stream << "\n LIMIT " << limit_;
         return stream.str();
-    }
-
-    std::vector<QueryParam> get_params() const override {
-        return { QueryParam(static_cast<int64_t>(limit_)) };
     }
 
     std::uint32_t get_limit() const { return limit_; }

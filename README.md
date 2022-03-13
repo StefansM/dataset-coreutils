@@ -150,7 +150,7 @@ kindly hosted at `s3://ursa-labs-taxi-data`) to find people who used taxi
 vendor "1" and didn't tip, then show the top few furthest journeys:
 
 ```console
-$ dcat "'nyc-taxi.parquet'" \
+$ dcat "'nyc-taxi-data/2018/*/data.parquet'" \
     | dcut vendor_id pickup_at dropoff_at tip_amount trip_distance \
     | dgrep vendor_id 1 \
     | dgrep -i tip_amount 0 \
@@ -158,9 +158,6 @@ $ dcat "'nyc-taxi.parquet'" \
     | dhead \
     | deval
 ```
-
-This isn't very impressive because `deval` can't yet handle partitioned
-datasets, so this is limited to a single file at the moment.
 
 ## Building
 
@@ -194,10 +191,6 @@ There are a few things I plan to improve:
   or even a C++ API to do it.
 
 * Clean up the build directory and write some tests.
-
-* Behaviour differs from the DuckDB CLI when working on multiple files. On
-  large datasets, `deval` seems to be trying to read it all into memory,
-  and sometimes isn't finding all the files that it should.
 
 [duckdb-arrow]: https://duckdb.org/2021/12/03/duck-arrow.html
 
