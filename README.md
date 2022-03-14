@@ -53,7 +53,7 @@ guaranteed terminus on each end of the pipeline).
 `dcat` accepts one parameter: the dataset to query. This must be given in a
 form that [DuckDb] understands when pasted after a `FROM` in a SQL command.
 That means that you *must include single quotes* if the SQL command given to
-DuckDb would.
+DuckDb would require them.
 
 Usage (note single quotes in table name are passed through):
 ```console
@@ -180,7 +180,7 @@ There are a few things I plan to improve:
   formats and doesn't just pass a raw string that's dumbly interpreted by
   DuckDb.
 
-* Improve type detection in `dgrep`. Types should be inferred at query timeG
+* Improve type detection in `dgrep`. Types should be inferred at query time
   rather than specified in `dgrep`. Predicates can be specified in `dgrep`
   but a placeholder predicate should be passed through so a sensible default
   can be inferred at query time.
