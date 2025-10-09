@@ -4,6 +4,7 @@
 #include <vector>
 #include <cstdint>
 #include <cstdio>
+#include <unordered_map>
 
 #include <arrow/c/abi.h>
 #include <arrow/c/bridge.h>
@@ -97,14 +98,14 @@ private:
 
 template <typename T>
 T dd_check(T result) {
-    if (!result->success) {
-        throw DuckDbException("Error doing DuckDb action. " + result->error);
+    if (result->HasError()) {
+        throw DuckDbException("Error doing DuckDb action. " + result->GetErrorObject().Message());
     }
     return result;
 }
 
-static std::vector<duckdb::Value> convert_params_to_duckdb(const std::vector<QueryParam> &query_params) {
-    std::vector<duckdb::Value> duckdb_params;
+static duckdb::vector<duckdb::Value> convert_params_to_duckdb(const std::vector<QueryParam> &query_params) {
+    duckdb::vector<duckdb::Value> duckdb_params;
 
     int i = 0;
     for (const auto &p : query_params) {
@@ -129,9 +130,10 @@ static std::vector<duckdb::Value> convert_params_to_duckdb(const std::vector<Que
     return duckdb_params;
 }
 
-static std::shared_ptr<arrow::Schema> duckdb_schema_to_arrow(std::unique_ptr<duckdb::QueryResult> &result) {
+static std::shared_ptr<arrow::Schema> duckdb_schema_to_arrow(
+        std::unique_ptr<duckdb::QueryResult> &result) {
     ArrowSchema duck_arrow_schema;
-    result->ToArrowSchema(&duck_arrow_schema);
+    duckdb::ArrowConverter::ToArrowSchema(&duck_arrow_schema, result->types, result->names, result->client_properties);
 
     return assign_or_raise(arrow::ImportSchema(&duck_arrow_schema));
 }
@@ -139,9 +141,13 @@ static std::shared_ptr<arrow::Schema> duckdb_schema_to_arrow(std::unique_ptr<duc
 
 std::shared_ptr<arrow::RecordBatch> chunk_to_record_batch(
         std::unique_ptr<duckdb::DataChunk> &data_chunk,
-        std::shared_ptr<arrow::Schema> arrow_schema) {
+        std::shared_ptr<arrow::Schema> arrow_schema,
+        std::unique_ptr<duckdb::QueryResult> &result) {
     ArrowArray arrow_array;
-    data_chunk->ToArrowArray(&arrow_array);
+
+    // TODO: No need to recretae this multiple times
+    std::unordered_map<duckdb::idx_t, const duckdb::shared_ptr<duckdb::ArrowTypeExtensionData>> extension_type_cast;
+    duckdb::ArrowConverter::ToArrowArray(*data_chunk, &arrow_array, result->client_properties, extension_type_cast);
 
     return assign_or_raise(arrow::ImportRecordBatch(&arrow_array, arrow_schema));
 }
@@ -181,7 +187,7 @@ int main(int argc, char **argv) {
                 break;
             }
 
-            auto batch_result = chunk_to_record_batch(data_chunk, arrow_schema);
+            auto batch_result = chunk_to_record_batch(data_chunk, arrow_schema, result);
             writer->write(batch_result);
         }
     } catch (const std::runtime_error &error) {

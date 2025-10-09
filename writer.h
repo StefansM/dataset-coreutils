@@ -58,7 +58,10 @@ protected:
 
 public:
     void write(std::shared_ptr<arrow::RecordBatch> batch) override {
-        writer_->Write(batch);
+        const auto status = writer_->Write(batch);
+        if (!status.ok()) {
+            throw std::runtime_error("Error writing batch: " + status.ToString());
+        }
     }
 
 private:
