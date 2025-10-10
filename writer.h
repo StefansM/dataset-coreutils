@@ -28,24 +28,24 @@ public:
 class ArrowDatasetWriter : public Writer {
 protected:
     ArrowDatasetWriter(std::shared_ptr<arrow::Schema> schema, const std::string &path,
-                       const std::shared_ptr<arrow::dataset::FileFormat> &file_format) :
+        const std::shared_ptr<arrow::dataset::FileFormat> &file_format) :
         ArrowDatasetWriter(std::move(schema), file_format, assign_or_raise(arrow::io::FileOutputStream::Open(path))) {}
 
     ArrowDatasetWriter(std::shared_ptr<arrow::Schema> schema, const int fd,
-                       const std::shared_ptr<arrow::dataset::FileFormat> &file_format) :
+        const std::shared_ptr<arrow::dataset::FileFormat> &file_format) :
         ArrowDatasetWriter(std::move(schema), file_format, assign_or_raise(arrow::io::FileOutputStream::Open(fd))) {}
 
 
     ArrowDatasetWriter(std::shared_ptr<arrow::Schema> schema,
-                       const std::shared_ptr<arrow::dataset::FileFormat> &file_format,
-                       std::shared_ptr<arrow::io::OutputStream> stream) {
+        const std::shared_ptr<arrow::dataset::FileFormat> &file_format,
+        std::shared_ptr<arrow::io::OutputStream> stream) {
 
         const auto fs = std::make_shared<arrow::fs::LocalFileSystem>();
         const auto file_options = file_format->DefaultWriteOptions();
 
         // The "path" parameter in the FileLocator member doesn't seem to be used for anything.
-        writer_ = assign_or_raise(file_format->MakeWriter(std::move(stream), std::move(schema), file_options,
-                                                          {.filesystem = fs, .path = ""}));
+        writer_ = assign_or_raise(file_format->MakeWriter(
+            std::move(stream), std::move(schema), file_options, {.filesystem = fs, .path = ""}));
     }
 
 public:
@@ -84,31 +84,84 @@ public:
 class ColumnarWriter final : public Writer {
 public:
     explicit ColumnarWriter(std::shared_ptr<arrow::Schema> schema) :
-        schema_(std::move(schema)), stream_(std::shared_ptr<std::ostream>(&std::cout, [](std::ostream *) {})) {}
+        schema_(std::move(schema)),
+        stream_(std::shared_ptr<std::ostream>(&std::cout, [](std::ostream *) {})),
+        print_options_(print_options()) {
+
+        init();
+    }
 
     ColumnarWriter(std::shared_ptr<arrow::Schema> schema, const std::string &path) :
-        schema_(std::move(schema)), stream_(open_output_stream(path)) {}
+        schema_(std::move(schema)),
+        stream_(open_output_stream(path)),
+        print_options_(print_options()) {
+
+        init();
+    }
 
 
     void write(std::shared_ptr<arrow::RecordBatch> batch) override {
-        // Accumulate batches, and only print when flushing the writer.
-        if (batch->num_rows() == 0) {
-            return;
+        const auto cols = batch->columns();
+
+        std::int64_t num_rows = 0;
+        if (cols.size() == 0) {
+            throw std::runtime_error("No columns were provided");
         }
-        batches_.push_back(batch);
+        num_rows = cols[0]->length();
+
+        std::stringstream stream;
+        std::vector<std::string> row;
+
+        for (std::int64_t i = 0; i < num_rows; ++i) {
+            for (std::size_t j = 0; j < cols.size(); ++j) {
+                const auto column = cols[j];
+                const auto slice = column->Slice(i, 1);
+                if (const auto status = arrow::PrettyPrint(*slice, print_options_, &stream); !status.ok()) {
+                    throw std::runtime_error("Error printing column: " + status.ToString());
+                }
+                const auto str = stream.str();
+                row.push_back(str);
+                max_col_width_[j] = std::max(max_col_width_[j], str.size());
+
+                stream.str({});
+            }
+            rendered_rows_.push_back(row);
+            row.clear();
+        }
     }
 
     void flush() override {
-        const auto table = assign_or_raise(arrow::Table::FromRecordBatches(schema_, batches_));
-        // Pretty print table
-        if (const auto status = arrow::PrettyPrint(*table, {}, stream_.get()); !status.ok()) {
-            throw std::runtime_error("Error printing table: " + status.ToString());
+        for (const auto &row : rendered_rows_) {
+            for (std::size_t i = 0; i < row.size(); ++i) {
+                const auto width = max_col_width_[i];
+                const auto delimiter = i == 0 ? "" : " ";
+                (*stream_) << delimiter << std::left << std::setw(width);
+                (*stream_) << row[i];
+            }
+            (*stream_) << '\n';
         }
-        stream_->flush();
-        batches_.clear();
     }
 
 private:
+    static arrow::PrettyPrintOptions print_options() {
+        arrow::PrettyPrintOptions print_options{};
+        print_options.show_field_metadata = false;
+        print_options.array_delimiters = {.open = "", .close = ""};
+        print_options.indent_size = 0;
+        print_options.skip_new_lines = true;
+        return print_options;
+    }
+
+    void init() {
+        std::vector<std::string> header;
+        for (const auto &field: schema_->fields()) {
+            const auto name = field->name();
+            header.push_back(name);
+            max_col_width_.push_back(name.size());
+        }
+        rendered_rows_.push_back(header);
+    }
+
     static std::shared_ptr<std::ostream> open_output_stream(const std::string &path) {
         const auto stream_ptr = std::make_shared<std::ofstream>(path);
         if (!stream_ptr->is_open()) {
@@ -119,5 +172,7 @@ private:
 
     std::shared_ptr<arrow::Schema> schema_;
     std::shared_ptr<std::ostream> stream_;
-    std::vector<std::shared_ptr<arrow::RecordBatch>> batches_;
+    arrow::PrettyPrintOptions print_options_;
+    std::vector<std::vector<std::string>> rendered_rows_;
+    std::vector<std::size_t> max_col_width_;
 };
