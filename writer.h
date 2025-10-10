@@ -3,6 +3,7 @@
 #include <fstream>
 #include <iostream>
 #include <memory>
+#include <regex>
 #include <string>
 #include <utility>
 
@@ -119,7 +120,11 @@ public:
                 if (const auto status = arrow::PrettyPrint(*slice, print_options_, &stream); !status.ok()) {
                     throw std::runtime_error("Error printing column: " + status.ToString());
                 }
-                const auto str = stream.str();
+                auto str = stream.str();
+                // Remove comments
+                str = std::regex_replace(str, comment_regex_, "");
+                str = std::regex_replace(str, newline_regex_, " ");
+
                 row.push_back(str);
                 max_col_width_[j] = std::max(max_col_width_[j], str.size());
 
@@ -169,6 +174,9 @@ private:
         }
         return std::static_pointer_cast<std::ostream>(stream_ptr);
     }
+
+    std::regex comment_regex_{"--.*\\n"};
+    std::regex newline_regex_{"\\n+"};
 
     std::shared_ptr<arrow::Schema> schema_;
     std::shared_ptr<std::ostream> stream_;

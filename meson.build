@@ -58,6 +58,14 @@ sort_exe = executable(
   dependencies : [jsondep, boostdep],
 )
 
+sql_exe = executable(
+  'dsql',
+  'sql.cpp',
+  common_files,
+  install : true,
+  dependencies : [jsondep, boostdep],
+)
+
 eval_exe = executable(
   'deval',
   'eval.cpp',

@@ -170,3 +170,14 @@ private:
     std::vector<std::string> columns_;
     bool reverse_;
 };
+
+
+class SqlFragment final : public QueryFragment {
+public:
+    explicit SqlFragment(std::string sql) : sql_(std::move(sql)) {}
+
+    [[nodiscard]] std::string get_fragment() const override { return sql_; }
+
+private:
+    std::string sql_;
+};

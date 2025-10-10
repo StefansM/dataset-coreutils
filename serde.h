@@ -8,8 +8,7 @@
 #include "query.h"
 #include "queryplan.h"
 
-class QueryParamSerDes {
-
+class QueryParamSerDes final {
 public:
     static Json::Value encode(const QueryParam &fragment) {
         Json::Value value;
@@ -43,7 +42,7 @@ public:
     }
 };
 
-class SelectSerDes {
+class SelectSerDes final {
 public:
     static Json::Value encode(const SelectFragment &fragment) {
         Json::Value value;
@@ -67,7 +66,7 @@ public:
     }
 };
 
-class WhereSerDes {
+class WhereSerDes final {
 public:
     static Json::Value encode(const WhereFragment &fragment) {
         Json::Value value;
@@ -100,7 +99,7 @@ public:
     }
 };
 
-class LimitSerDes {
+class LimitSerDes final {
 public:
     static Json::Value encode(const LimitFragment &fragment) {
         Json::Value value;
@@ -111,7 +110,7 @@ public:
     static LimitFragment decode(const Json::Value &json) { return LimitFragment{json["limit"].asUInt()}; }
 };
 
-class OrderSerDes {
+class OrderSerDes final {
 public:
     static Json::Value encode(const OrderFragment &fragment) {
         Json::Value value;
@@ -137,7 +136,22 @@ public:
     }
 };
 
-class QueryPlanSerDes {
+class SqlSerDes final {
+public:
+    static Json::Value encode(const SqlFragment &fragment) {
+        Json::Value value;
+
+        value["sql"] = fragment.get_fragment();
+
+        return value;
+    }
+
+    static SqlFragment decode(const Json::Value &json) {
+        return SqlFragment {json["sql"].asString()};
+    }
+};
+
+class QueryPlanSerDes final {
 public:
     static Json::Value encode(const QueryPlan &query_plan) {
         Json::Value root;
@@ -145,6 +159,7 @@ public:
         root["where"] = Json::Value::null;
         root["limit"] = Json::Value::null;
         root["order"] = Json::Value::null;
+        root["sql"] = Json::Value::null;
 
         if (query_plan.select) {
             root["select"] = SelectSerDes::encode(*query_plan.select);
@@ -162,11 +177,15 @@ public:
             root["order"] = OrderSerDes::encode(*query_plan.order);
         }
 
+        if (query_plan.sql) {
+            root["sql"] = SqlSerDes::encode(*query_plan.sql);
+        }
+
         return root;
     }
 
     static QueryPlan decode(const Json::Value &root) {
-        QueryPlan query_plan;
+        QueryPlan query_plan {};
 
         if (const auto &select = root["select"]; select != Json::Value::null) {
             query_plan.select = SelectSerDes::decode(select);
@@ -182,6 +201,10 @@ public:
 
         if (const auto &order = root["order"]; order != Json::Value::null) {
             query_plan.order = OrderSerDes::decode(order);
+        }
+
+        if (const auto &sql = root["sql"]; sql != Json::Value::null) {
+            query_plan.sql = SqlSerDes::decode(sql);
         }
 
         return query_plan;

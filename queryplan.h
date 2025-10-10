@@ -16,8 +16,13 @@ struct QueryPlan {
     std::optional<WhereFragment> where;
     std::optional<LimitFragment> limit;
     std::optional<OrderFragment> order;
+    std::optional<SqlFragment> sql;
 
     [[nodiscard]] std::optional<ParameterisedQuery> generate_query() const {
+        if (sql) {
+            return ParameterisedQuery {.query = sql->get_fragment(), .params = {}};
+        }
+
         if (!select) {
             std::cerr << "No 'SELECT' clause present in query plan.\n";
             return std::nullopt;
