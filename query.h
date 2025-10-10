@@ -2,63 +2,72 @@
 #define QUERY_H_
 
 #include <cstdint>
+#include <map>
+#include <utility>
 #include <variant>
+#include <sstream>
 #include <string>
 #include <algorithm>
+#include <vector>
 
-enum class ParamType { NUMERIC, TEXT, UNKNOWN };
+enum class ParamType : std::uint8_t { NUMERIC, TEXT, UNKNOWN };
 
 using TypeMap = std::map<std::string, ParamType>;
 
 class QueryParam {
 public:
-    QueryParam(std::string text)
-        : type(ParamType::TEXT)
-        , value(std::move(text)) {}
+    explicit QueryParam(std::string text)
+        : QueryParam(std::move(text), ParamType::TEXT) {}
 
-    QueryParam(std::int64_t number)
-        : type(ParamType::NUMERIC)
-        , value(number) {}
+    explicit QueryParam(std::int64_t number)
+        : type_(ParamType::NUMERIC)
+        , value_(number) {}
 
     static QueryParam unknown(std::string text) {
-        return QueryParam(text, ParamType::UNKNOWN);
+        return {std::move(text), ParamType::UNKNOWN};
     }
 
     template <typename T>
-    T get() const {
-        return std::get<T>(value);
+    [[nodiscard]] T get() const {
+        return std::get<T>(value_);
     }
 
-    ParamType type;
+    [[nodiscard]] ParamType type() const { return type_; }
 
 private:
-    QueryParam(std::string text, ParamType type)
-        : type(type)
-        , value(std::move(text)) {}
+    QueryParam(std::string text, const ParamType type)
+        : type_(type)
+        , value_(std::move(text)) {}
 
-    std::variant<std::string, std::int64_t> value;
+    ParamType type_;
+    std::variant<std::string, std::int64_t> value_;
 };
 
 
 class QueryFragment {
 public:
-    virtual std::string get_fragment() const = 0;
+    [[nodiscard]] virtual std::string get_fragment() const = 0;
 
-    virtual std::vector<QueryParam> get_params() const {
+    [[nodiscard]] virtual std::vector<QueryParam> get_params() const {
         return {};
     }
 
+    QueryFragment() = default;
     virtual ~QueryFragment() = default;
+    QueryFragment (const QueryFragment &) = default;
+    QueryFragment& operator= (const QueryFragment &) = default;
+    QueryFragment (QueryFragment &&) = default;
+    QueryFragment& operator= (QueryFragment &&) = default;
 };
 
-class SelectFragment : public QueryFragment {
+class SelectFragment final : public QueryFragment {
 public:
     SelectFragment(std::string tablename, std::vector<std::string> columns)
         : tablename_(std::move(tablename))
         , columns_(std::move(columns))
     {}
 
-    std::string get_fragment() const override {
+    [[nodiscard]] std::string get_fragment() const override {
         std::stringstream stream;
         stream << "SELECT ";
 
@@ -74,8 +83,8 @@ public:
         return stream.str();
     }
 
-    std::string get_tablename() const { return tablename_; }
-    std::vector<std::string> get_columns() const { return columns_; }
+    [[nodiscard]] std::string get_tablename() const { return tablename_; }
+    [[nodiscard]] std::vector<std::string> get_columns() const { return columns_; }
 
 private:
     std::string tablename_;
@@ -88,18 +97,18 @@ struct Condition {
     QueryParam value;
 };
 
-class WhereFragment : public QueryFragment {
+class WhereFragment final : public QueryFragment {
 public:
     WhereFragment()
-    {}
+    = default;
 
     void add_condition(std::string column, std::string predicate, QueryParam value) {
-        conditions_.push_back({column, predicate, value});
+        conditions_.push_back({std::move(column), std::move(predicate), std::move(value)});
     }
 
-    std::vector<Condition> get_conditions() const { return conditions_; }
+    [[nodiscard]] std::vector<Condition> get_conditions() const { return conditions_; }
 
-    std::string get_fragment() const override {
+    [[nodiscard]] std::string get_fragment() const override {
         std::stringstream stream;
         int i = 0;
         for (const auto &c : conditions_) {
@@ -113,7 +122,7 @@ public:
         return stream.str();
     }
 
-    std::vector<QueryParam> get_params() const override {
+    [[nodiscard]] std::vector<QueryParam> get_params() const override {
         std::vector<QueryParam> params;
         params.reserve(conditions_.size());
 
@@ -125,16 +134,16 @@ public:
     }
 
 private:
-    std::vector<Condition> conditions_ {};
+    std::vector<Condition> conditions_;
 };
 
-class LimitFragment : public QueryFragment {
+class LimitFragment final : public QueryFragment {
 public:
-    LimitFragment(std::uint32_t limit)
+    explicit LimitFragment(const std::uint32_t limit)
         : limit_(limit)
     {}
 
-    std::string get_fragment() const override {
+    [[nodiscard]] std::string get_fragment() const override {
         std::stringstream stream;
         // FIXME: When using a query parameter for limit across multiple Parquet
         // files, I get an incorrect result compared to doing this.
@@ -142,20 +151,20 @@ public:
         return stream.str();
     }
 
-    std::uint32_t get_limit() const { return limit_; }
+    [[nodiscard]] std::uint32_t get_limit() const { return limit_; }
 
 private:
     std::uint32_t limit_;
 };
 
-class OrderFragment : public QueryFragment {
+class OrderFragment final : public QueryFragment {
 public:
-    OrderFragment(std::vector<std::string> columns, bool reverse)
+    OrderFragment(std::vector<std::string> columns, const bool reverse)
         : columns_(std::move(columns))
         , reverse_(reverse)
     {}
 
-    std::string get_fragment() const override {
+    [[nodiscard]] std::string get_fragment() const override {
         const char *direction = reverse_ ? "DESC" : "ASC";
 
         std::stringstream stream;
@@ -171,8 +180,8 @@ public:
         return stream.str();
     }
 
-    std::vector<std::string> get_columns() const { return columns_; }
-    bool reversed() const { return reverse_; }
+    [[nodiscard]] std::vector<std::string> get_columns() const { return columns_; }
+    [[nodiscard]] bool reversed() const { return reverse_; }
 
 private:
     std::vector<std::string> columns_;

@@ -9,25 +9,25 @@
 #include "options.h"
 
 
-class CatOptions : public Options {
+class CatOptions final : public Options {
 public:
     CatOptions() {
         namespace po = boost::program_options;
 
-        description_.add_options()
+        description().add_options()
             ("dataset,d", po::value(&dataset_), "Dataset location")
         ;
-        add_positional_argument("dataset", 1, 1);
+        add_positional_argument("dataset", {.min_args = 1, .max_args = 1});
     }
 
-    std::string get_dataset() const { return dataset_; }
+    [[nodiscard]] std::string get_dataset() const { return dataset_; }
 
 private:
     std::string dataset_;
 };
 
 
-int main(int argc, char **argv) {
+int main(const int argc, const char *argv[]) {
     CatOptions options;
     if (!options.parse(argc, argv)) {
         return 1;

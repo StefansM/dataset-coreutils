@@ -2,9 +2,14 @@
 #define OPTIONS_H_
 
 #include <string>
-#include <vector>
+#include <iostream>
 
 #include <boost/program_options.hpp>
+
+struct ArgCount {
+    unsigned int min_args = 0;
+    std::optional<int> max_args = std::nullopt;
+};
 
 class Options {
 public:
@@ -15,10 +20,14 @@ public:
             ("help,h", "Show this help message")
         ;
     }
+    Options (const Options&) = delete;
+    Options& operator= (const Options&) = delete;
+    Options (Options&&) = delete;
+    Options& operator= (Options&&) = delete;
 
     virtual ~Options() = default;
 
-    virtual bool parse(int argc, char **argv) {
+    virtual bool parse(const int argc, const char *argv[]) { // NOLINT(*-avoid-c-arrays)
         namespace po = boost::program_options;
 
         try {
@@ -32,41 +41,44 @@ public:
             );
             po::notify(var_map);
 
-            if (var_map.count("help")) {
-                std::cerr << description_ << std::endl;
+            if (var_map.count("help") != 0U) {
+                std::cerr << description_ << '\n';
                 return false;
             }
 
             for (const auto &[arg_name, min_args] : min_args_) {
                 if (var_map.count(arg_name) < min_args) {
                     std::cerr
-                        << "Argument '" << arg_name << "' must be supplied at least " << min_args << " times."
-                        << std::endl
-                        << std::endl
+                        << "Argument '" << arg_name << "' must be supplied at least " << min_args << " times.\n\n"
                         << description_
-                        << std::endl;
+                        << '\n';
                     return false;
                 }
             }
         } catch (const po::error &e) {
-            std::cerr << e.what() << std::endl;
+            std::cerr << e.what() << '\n';
             return false;
         }
-
 
         return true;
     }
 
+    boost::program_options::options_description description() { return description_; }
+    boost::program_options::positional_options_description positional() { return positional_; }
+
 protected:
-    void add_positional_argument(std::string arg_name, unsigned int min_args, int max_args) {
+    void add_positional_argument(const std::string& arg_name, const ArgCount& arg_count) {
+        const int max_args = arg_count.max_args.value_or(-1);
+        const unsigned int min_args = arg_count.min_args;
+
         positional_.add(arg_name.c_str(), max_args);
         min_args_[arg_name] = min_args;
     }
 
+private:
     boost::program_options::options_description description_;
     boost::program_options::positional_options_description positional_;
 
-private:
     std::map<std::string, unsigned int> min_args_;
 };
 

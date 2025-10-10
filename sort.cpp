@@ -4,35 +4,33 @@
 
 #include <boost/program_options.hpp>
 
-#include "query.h"
 #include "queryplan.h"
 #include "serde.h"
 #include "options.h"
 
 
-class SortOptions : public Options {
+class SortOptions final : public Options {
 public:
     SortOptions() {
         namespace po = boost::program_options;
 
-        description_.add_options()
+        description().add_options()
             ("field,f", po::value(&fields_)->composing(), "Field on which to sort.")
             ("reverse,r", po::bool_switch(&reversed_), "Descending sort.")
         ;
-        add_positional_argument("field", 1, -1);
+        add_positional_argument("field", {.min_args = 1, .max_args = std::nullopt});
     }
 
-    virtual bool parse(int argc, char **argv) override {
-        bool parent_result = Options::parse(argc, argv);
-        if (!parent_result) {
+    bool parse(const int argc, const char *argv[]) override {  // NOLINT(*-avoid-c-arrays)
+        if (const bool parent_result = Options::parse(argc, argv); !parent_result) {
             return parent_result;
         }
 
         return true;
     }
 
-    std::vector<std::string> get_fields() const { return fields_; }
-    bool reversed() const { return reversed_; }
+    [[nodiscard]] std::vector<std::string> get_fields() const { return fields_; }
+    [[nodiscard]] bool reversed() const { return reversed_; }
 
 private:
     std::vector<std::string> fields_;
@@ -40,7 +38,7 @@ private:
 };
 
 
-int main(int argc, char **argv) {
+int main(const int argc, const char *argv[]) {
     SortOptions options;
     if (!options.parse(argc, argv)) {
         return 1;
@@ -48,7 +46,7 @@ int main(int argc, char **argv) {
 
     auto query_plan = load_query_plan(std::cin);
     if (!query_plan) {
-        std::cerr << "Unable to parse query plan from standard input." << std::endl;
+        std::cerr << "Unable to parse query plan from standard input.\n";
         return 1;
     }
 

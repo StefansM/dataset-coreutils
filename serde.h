@@ -1,14 +1,20 @@
 #ifndef SERDE_H_
 #define SERDE_H_
 
+#include <iostream>
+#include <optional>
+
 #include <json/json.h>
+
+#include "query.h"
+#include "queryplan.h"
 
 class QueryParamSerDes {
 
 public:
-    Json::Value encode(const QueryParam &fragment) {
+    static Json::Value encode(const QueryParam &fragment) {
         Json::Value value;
-        switch (fragment.type) {
+        switch (fragment.type()) {
             case ParamType::NUMERIC:
                 value["type"] = "NUMERIC";
                 value["value"] = fragment.get<std::int64_t>();
@@ -25,21 +31,22 @@ public:
         return value;
     }
 
-    QueryParam decode(const Json::Value &fragment) {
-        auto type = fragment["type"].asString();
-        auto value = fragment["value"];
-        if (type == "NUMERIC")
+    static QueryParam decode(const Json::Value &fragment) {
+        const auto type = fragment["type"].asString();
+        const auto& value = fragment["value"];
+        if (type == "NUMERIC") {
             return QueryParam(value.asInt64());
-        else if (type == "TEXT")
+        }
+        if (type == "TEXT") {
             return QueryParam(value.asString());
-        else
-            return QueryParam::unknown(value.asString());
+        }
+        return QueryParam::unknown(value.asString());
     }
 };
 
 class SelectSerDes {
 public:
-    Json::Value encode(const SelectFragment &fragment) {
+    static Json::Value encode(const SelectFragment &fragment) {
         Json::Value value;
         value["tablename"] = fragment.get_tablename();
 
@@ -51,28 +58,28 @@ public:
         return value;
     }
 
-    SelectFragment decode(const Json::Value &fragment) {
+    static SelectFragment decode(const Json::Value &fragment) {
         std::vector<std::string> columns;
         for (const auto &col : fragment["columns"]) {
             columns.push_back(col.asString());
         }
 
-        return SelectFragment(fragment["tablename"].asString(), columns);
+        return {fragment["tablename"].asString(), columns};
     }
 };
 
 class WhereSerDes {
 public:
-    Json::Value encode(const WhereFragment &fragment) {
+    static Json::Value encode(const WhereFragment &fragment) {
         Json::Value value;
         value["conditions"] = Json::Value();
 
         int i = 0;
-        for (const auto &cond : fragment.get_conditions()) {
+        for (const auto &[column, predicate, param] : fragment.get_conditions()) {
             Json::Value json_cond;
-            json_cond["column"] = cond.column;
-            json_cond["predicate"] = cond.predicate;
-            json_cond["value"] = param_serdes.encode(cond.value);
+            json_cond["column"] = column;
+            json_cond["predicate"] = predicate;
+            json_cond["value"] = QueryParamSerDes::encode(param);
 
             value["conditions"][i++] = json_cond;
         }
@@ -80,138 +87,140 @@ public:
         return value;
     }
 
-    WhereFragment decode(const Json::Value &json) {
+    static WhereFragment decode(const Json::Value &json) {
         WhereFragment fragment;
         for (const auto &cond : json["conditions"]) {
-            auto column = cond["column"].asString();
-            auto predicate = cond["predicate"].asString();
-            auto value = param_serdes.decode(cond["value"]);
+            const auto column = cond["column"].asString();
+            const auto predicate = cond["predicate"].asString();
+            const auto value = QueryParamSerDes::decode(cond["value"]);
 
             fragment.add_condition(column, predicate, value);
         }
 
         return fragment;
     }
-
-private:
-    QueryParamSerDes param_serdes;
 };
 
 class LimitSerDes {
 public:
-    Json::Value encode(const LimitFragment &fragment) {
+    static Json::Value encode(const LimitFragment &fragment) {
         Json::Value value;
         value["limit"] = fragment.get_limit();
         return value;
     }
 
-    LimitFragment decode(const Json::Value &json) {
-        return LimitFragment(json["limit"].asUInt());
+    static LimitFragment decode(const Json::Value &json) {
+        return LimitFragment {json["limit"].asUInt()};
     }
 };
 
 class OrderSerDes {
 public:
-    Json::Value encode(const OrderFragment &fragment) {
+    static Json::Value encode(const OrderFragment &fragment) {
         Json::Value value;
 
         value["reversed"] = fragment.reversed();
         value["fields"] = Json::Value();
 
         int i = 0;
-        for (const auto &f : fragment.get_columns())
+        for (const auto &f: fragment.get_columns()) {
             value["fields"][i++] = f;
+        }
 
         return value;
     }
 
-    OrderFragment decode(const Json::Value &json) {
+    static OrderFragment decode(const Json::Value &json) {
         std::vector<std::string> columns;
-        for (const auto &cond : json["fields"])
+        for (const auto &cond: json["fields"]) {
             columns.push_back(cond.asString());
+        }
 
-        return OrderFragment(columns, json["reversed"].asBool());
+        return {columns, json["reversed"].asBool()};
     }
 };
 
 class QueryPlanSerDes {
 public:
-    Json::Value encode(const QueryPlan &query_plan) {
+    static Json::Value encode(const QueryPlan &query_plan) {
         Json::Value root;
         root["select"] = Json::Value::null;
         root["where"] = Json::Value::null;
         root["limit"] = Json::Value::null;
         root["order"] = Json::Value::null;
 
-        if (query_plan.select)
-            root["select"] = SelectSerDes().encode(*query_plan.select);
+        if (query_plan.select) {
+            root["select"] = SelectSerDes::encode(*query_plan.select);
+        }
 
-        if (query_plan.where)
-            root["where"] = WhereSerDes().encode(*query_plan.where);
+        if (query_plan.where) {
+            root["where"] = WhereSerDes::encode(*query_plan.where);
+        }
 
-        if (query_plan.limit)
-            root["limit"] = LimitSerDes().encode(*query_plan.limit);
+        if (query_plan.limit) {
+            root["limit"] = LimitSerDes::encode(*query_plan.limit);
+        }
 
-        if (query_plan.order)
-            root["order"] = OrderSerDes().encode(*query_plan.order);
+        if (query_plan.order) {
+            root["order"] = OrderSerDes::encode(*query_plan.order);
+        }
 
         return root;
     }
 
-    QueryPlan decode(const Json::Value &root) {
+    static QueryPlan decode(const Json::Value &root) {
         QueryPlan query_plan;
 
-        auto select = root["select"];
-        if (select != Json::Value::null)
-            query_plan.select = SelectSerDes().decode(select);
+        if (const auto &select = root["select"]; select != Json::Value::null) {
+            query_plan.select = SelectSerDes::decode(select);
+        }
 
-        auto where = root["where"];
-        if (where != Json::Value::null)
-            query_plan.where = WhereSerDes().decode(where);
+        if (const auto &where = root["where"]; where != Json::Value::null) {
+            query_plan.where = WhereSerDes::decode(where);
+        }
 
-        auto limit = root["limit"];
-        if (limit != Json::Value::null)
-            query_plan.limit = LimitSerDes().decode(limit);
+        if (const auto &limit = root["limit"]; limit != Json::Value::null) {
+            query_plan.limit = LimitSerDes::decode(limit);
+        }
 
-        auto order = root["order"];
-        if (order != Json::Value::null)
-            query_plan.order = OrderSerDes().decode(order);
+        if (const auto &order = root["order"]; order != Json::Value::null) {
+            query_plan.order = OrderSerDes::decode(order);
+        }
 
         return query_plan;
     }
 };
 
-void dump_json(const Json::Value &value, std::ostream &out) {
-    Json::StreamWriterBuilder builder;
-    std::unique_ptr<Json::StreamWriter> json_writer(builder.newStreamWriter());
+inline void dump_json(const Json::Value &value, std::ostream &out) {
+    const Json::StreamWriterBuilder builder;
+    const std::unique_ptr<Json::StreamWriter> json_writer(builder.newStreamWriter());
     json_writer->write(value, &out);
 }
 
-std::optional<Json::Value> load_json(std::istream &in) {
+inline std::optional<Json::Value> load_json(std::istream &in) {
     Json::Value root;
     JSONCPP_STRING errs;
 
-    Json::CharReaderBuilder builder;
-    if (!Json::parseFromStream(builder, in, &root, &errs)) {
-        std::cerr << errs << std::endl;
+    if (const Json::CharReaderBuilder builder; !Json::parseFromStream(builder, in, &root, &errs)) {
+        std::cerr << errs << '\n';
         return std::nullopt;
     }
 
     return root;
 }
 
-std::optional<QueryPlan> load_query_plan(std::istream &in) {
-    auto json_doc = load_json(in);
+inline std::optional<QueryPlan> load_query_plan(std::istream &in) {
+    const auto json_doc = load_json(in);
     if (!json_doc) {
-        std::cerr << "Unable to parse query plan from standard input." << std::endl;
+        std::cerr << "Unable to parse query plan from standard input.\n";
         return std::nullopt;
     }
 
-    return QueryPlanSerDes().decode(*json_doc);
+    return QueryPlanSerDes::decode(*json_doc);
 }
 
-void dump_query_plan(const QueryPlan &query_plan, std::ostream &out) {
-    Json::Value query_plan_encoded = QueryPlanSerDes().encode(query_plan);
+inline void dump_query_plan(const QueryPlan &query_plan, std::ostream &out) {
+    const Json::Value query_plan_encoded = QueryPlanSerDes::encode(query_plan);
     dump_json(query_plan_encoded, out);
 }
 

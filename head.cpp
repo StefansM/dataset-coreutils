@@ -1,43 +1,41 @@
 #include <iostream>
 #include <string>
-#include <vector>
 
 #include <boost/program_options.hpp>
 
-#include "query.h"
 #include "queryplan.h"
 #include "serde.h"
 #include "options.h"
 
+constexpr int DEFAULT_NUMBER_OF_LINES = 10;
 
-class HeadOptions : public Options {
+class HeadOptions final : public Options {
 public:
     HeadOptions() {
         namespace po = boost::program_options;
 
-        description_.add_options()
-            ("lines,n", po::value(&lines_)->default_value(10), "Number of results to include.")
+        description().add_options()
+            ("lines,n", po::value(&lines_)->default_value(DEFAULT_NUMBER_OF_LINES), "Number of results to include.")
         ;
-        add_positional_argument("lines", 0, 1);
+        add_positional_argument("lines", {.min_args = 0, .max_args = 1});
     }
 
-    virtual bool parse(int argc, char **argv) override {
-        bool parent_result = Options::parse(argc, argv);
-        if (!parent_result) {
+    bool parse(const int argc, const char *argv[]) override {  // NOLINT(*-avoid-c-arrays)
+        if (bool const parent_result = Options::parse(argc, argv); !parent_result) {
             return parent_result;
         }
 
         return true;
     }
 
-    std::uint32_t get_lines() const { return lines_; }
+    [[nodiscard]] std::uint32_t get_lines() const { return lines_; }
 
 private:
-    std::uint32_t lines_;
+    std::uint32_t lines_{};
 };
 
 
-int main(int argc, char **argv) {
+int main(const int argc, const char *argv[]) {
     HeadOptions options;
     if (!options.parse(argc, argv)) {
         return 1;
@@ -45,7 +43,7 @@ int main(int argc, char **argv) {
 
     auto query_plan = load_query_plan(std::cin);
     if (!query_plan) {
-        std::cerr << "Unable to parse query plan from standard input." << std::endl;
+        std::cerr << "Unable to parse query plan from standard input.\n";
         return 1;
     }
 

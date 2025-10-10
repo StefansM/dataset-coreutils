@@ -10,25 +10,25 @@
 #include "options.h"
 
 
-class CutOptions : public Options {
+class CutOptions final : public Options {
 public:
     CutOptions() {
         namespace po = boost::program_options;
 
-        description_.add_options()
+        description().add_options()
             ("field,f", po::value(&fields_)->composing(), "Include this field in output.")
         ;
-        add_positional_argument("field", 1, -1);
+        add_positional_argument("field", {.min_args = 1, .max_args = std::nullopt});
     }
 
-    std::vector<std::string> get_fields() const { return fields_; }
+    [[nodiscard]] std::vector<std::string> get_fields() const { return fields_; }
 
 private:
     std::vector<std::string> fields_;
 };
 
 
-int main(int argc, char **argv) {
+int main(const int argc, const char *argv[]) {
     CutOptions options;
     if (!options.parse(argc, argv)) {
         return 1;
@@ -36,7 +36,7 @@ int main(int argc, char **argv) {
 
     auto query_plan = load_query_plan(std::cin);
     if (!query_plan) {
-        std::cerr << "Unable to parse query plan from standard input." << std::endl;
+        std::cerr << "Unable to parse query plan from standard input.\n";
         return 1;
     }
 

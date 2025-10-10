@@ -129,7 +129,7 @@ $ dgrep -i tip_amount -p '>' 100
 ### `deval`: evaluate pipeline
 
 If you've tried running any of the commands above individually, you'll have
-noticed that they don't print any data. Instad, they write a JSON-encoded query
+noticed that they don't print any data. Instead, they write a JSON-encoded query
 plan that gets consumed by `deval`. A pipeline does nothing unless `deval` is
 invoked.
 
@@ -169,7 +169,7 @@ $ meson compile -C builddir
 $ meson install -C builddir
 ```
 
-Prequisites: `arrow`, `duckdb` and `boost` (specifically
+Prerequisite: `arrow`, `duckdb` and `boost` (specifically
 `boost::program_options`).
 
 ## Next steps

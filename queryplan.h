@@ -18,9 +18,9 @@ struct QueryPlan {
     std::optional<LimitFragment> limit;
     std::optional<OrderFragment> order;
 
-    std::optional<ParameterisedQuery> generate_query() const {
+    [[nodiscard]] std::optional<ParameterisedQuery> generate_query() const {
         if (!select) {
-            std::cerr << "No 'SELECT' clause present in query plan." << std::endl;
+            std::cerr << "No 'SELECT' clause present in query plan.\n";
             return std::nullopt;
         }
 
@@ -32,26 +32,26 @@ struct QueryPlan {
         accumulate(query_buf, parameters, order);
         accumulate(query_buf, parameters, limit);
 
-        ParameterisedQuery query {query_buf.str(), parameters};
+        ParameterisedQuery query {.query = query_buf.str(), .params = parameters};
         return query;
     }
 
 private:
     template <typename T>
-    void accumulate(
+    static void accumulate(
             std::stringstream &query_buf,
             std::vector<QueryParam> &parameters,
-            const std::optional<T> &fragment) const {
+            const std::optional<T> &fragment) {
 
         if (fragment) {
             accumulate(query_buf, parameters, *fragment);
         }
     }
 
-    void accumulate(
+    static void accumulate(
             std::stringstream &query_buf,
             std::vector<QueryParam> &parameters,
-            const QueryFragment &fragment) const {
+            const QueryFragment &fragment) {
 
         query_buf << fragment.get_fragment();
         auto params = fragment.get_params();

@@ -9,35 +9,34 @@
 #include "options.h"
 
 
-class GrepOptions : public Options {
+class GrepOptions final : public Options {
 public:
     GrepOptions() {
         namespace po = boost::program_options;
 
-        description_.add_options()
+        description().add_options()
             ("field,f", po::value(&field_), "Field to search.")
             ("value,v", po::value(&value_str_), "Value to search for.")
             ("predicate,p", po::value(&predicate_), "Predicate in the search ('=', 'LIKE', etc).")
             ("integer,i", po::bool_switch(&is_integer_), "Value is an integer column.")
             ("text,t", po::bool_switch(&is_text_), "Value is an text column.")
         ;
-        add_positional_argument("field", 1, 1);
-        add_positional_argument("value", 1, 1);
+        add_positional_argument("field", {.min_args = 1, .max_args = 1});
+        add_positional_argument("value", {.min_args = 1, .max_args = 1});
     }
 
-    virtual bool parse(int argc, char **argv) override {
-        bool parent_result = Options::parse(argc, argv);
-        if (!parent_result) {
+    bool parse(const int argc, const char *argv[]) override {  // NOLINT(*-avoid-c-arrays)
+        if (bool const parent_result = Options::parse(argc, argv); !parent_result) {
             return parent_result;
         }
 
         if (field_.empty() || value_str_.empty()) {
-            std::cerr << "Both 'field' and 'value' option must be supplied." << std::endl;
+            std::cerr << "Both 'field' and 'value' option must be supplied.\n";
             return false;
         }
 
         if (is_integer_ && is_text_) {
-            std::cerr << "Only one of 'integer' or 'text' may be specified." << std::endl;
+            std::cerr << "Only one of 'integer' or 'text' may be specified.\n";
             return false;
         }
 
@@ -50,7 +49,7 @@ public:
             try {
                 value_ = std::make_unique<QueryParam>(std::stoll(value_str_));
             } catch (const std::exception &e) {
-                std::cerr << "Couldn't convert '" << value_str_ << "' to number: " << e.what() << std::endl;
+                std::cerr << "Couldn't convert '" << value_str_ << "' to number: " << e.what() << '\n';
                 return false;
             }
 
@@ -71,9 +70,9 @@ public:
         return true;
     }
 
-    std::string get_field() const { return field_; }
-    std::string get_predicate() const { return predicate_; }
-    QueryParam get_value() const { return QueryParam(*value_); }
+    [[nodiscard]] std::string get_field() const { return field_; }
+    [[nodiscard]] std::string get_predicate() const { return predicate_; }
+    [[nodiscard]] QueryParam get_value() const { return { *value_ }; }
 
 private:
     std::string field_;
@@ -86,7 +85,7 @@ private:
 };
 
 
-int main(int argc, char **argv) {
+int main(const int argc, const char *argv[]) {
     GrepOptions options;
     if (!options.parse(argc, argv)) {
         return 1;
@@ -94,7 +93,7 @@ int main(int argc, char **argv) {
 
     auto query_plan = load_query_plan(std::cin);
     if (!query_plan) {
-        std::cerr << "Unable to parse query plan from standard input." << std::endl;
+        std::cerr << "Unable to parse query plan from standard input.\n";
         return 1;
     }
 

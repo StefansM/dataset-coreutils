@@ -1,10 +1,11 @@
 #ifndef ARROW_RESULT_H_
 #define ARROW_RESULT_H_
 
-#include <exception>
+#include <arrow/result.h>
+#include <string>
 
-struct ArrowException : public std::runtime_error {
-    ArrowException(std::string msg) : std::runtime_error(msg) {}
+struct ArrowException final : std::runtime_error {
+    explicit ArrowException(const std::string &msg) : std::runtime_error(msg) {}
 };
 
 
