@@ -49,8 +49,8 @@ public:
         return true;
     }
 
-    boost::program_options::options_description description() { return description_; }
-    boost::program_options::positional_options_description positional() { return positional_; }
+    boost::program_options::options_description &description() { return description_; }
+    boost::program_options::positional_options_description &positional() { return positional_; }
 
 protected:
     void add_positional_argument(const std::string &arg_name, const ArgCount &arg_count) {

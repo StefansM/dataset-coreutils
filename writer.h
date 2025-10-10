@@ -1,5 +1,7 @@
 #pragma once
 
+#include <fstream>
+#include <iostream>
 #include <memory>
 #include <string>
 #include <utility>
@@ -13,6 +15,8 @@
 class Writer {
 public:
     virtual void write(std::shared_ptr<arrow::RecordBatch> batch) = 0;
+    virtual void flush() {}
+
     virtual ~Writer() = default;
     Writer() = default;
     Writer(const Writer &) = delete;
@@ -75,4 +79,45 @@ public:
 
     CsvWriter(std::shared_ptr<arrow::Schema> schema, const int fd) :
         ArrowDatasetWriter(std::move(schema), fd, std::make_shared<file_format>()) {}
+};
+
+class ColumnarWriter final : public Writer {
+public:
+    explicit ColumnarWriter(std::shared_ptr<arrow::Schema> schema) :
+        schema_(std::move(schema)), stream_(std::shared_ptr<std::ostream>(&std::cout, [](std::ostream *) {})) {}
+
+    ColumnarWriter(std::shared_ptr<arrow::Schema> schema, const std::string &path) :
+        schema_(std::move(schema)), stream_(open_output_stream(path)) {}
+
+
+    void write(std::shared_ptr<arrow::RecordBatch> batch) override {
+        // Accumulate batches, and only print when flushing the writer.
+        if (batch->num_rows() == 0) {
+            return;
+        }
+        batches_.push_back(batch);
+    }
+
+    void flush() override {
+        const auto table = assign_or_raise(arrow::Table::FromRecordBatches(schema_, batches_));
+        // Pretty print table
+        if (const auto status = arrow::PrettyPrint(*table, {}, stream_.get()); !status.ok()) {
+            throw std::runtime_error("Error printing table: " + status.ToString());
+        }
+        stream_->flush();
+        batches_.clear();
+    }
+
+private:
+    static std::shared_ptr<std::ostream> open_output_stream(const std::string &path) {
+        const auto stream_ptr = std::make_shared<std::ofstream>(path);
+        if (!stream_ptr->is_open()) {
+            throw std::runtime_error("Unable to open file " + path + " for writing.");
+        }
+        return std::static_pointer_cast<std::ostream>(stream_ptr);
+    }
+
+    std::shared_ptr<arrow::Schema> schema_;
+    std::shared_ptr<std::ostream> stream_;
+    std::vector<std::shared_ptr<arrow::RecordBatch>> batches_;
 };

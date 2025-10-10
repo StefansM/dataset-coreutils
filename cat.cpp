@@ -14,7 +14,8 @@ public:
     CatOptions() {
         namespace po = boost::program_options;
 
-        description().add_options()("dataset,d", po::value(&dataset_), "Dataset location");
+        description().add_options()
+        ("dataset,d", po::value(&dataset_), "Dataset location");
         add_positional_argument("dataset", {.min_args = 1, .max_args = 1});
     }
 

@@ -28,9 +28,11 @@ public:
     EvalOptions() {
         namespace po = boost::program_options;
 
-        description().add_options()("csv,c", po::bool_switch(&write_csv_), "Write results in CSV format.")(
-                "parquet,p", po::bool_switch(&write_parquet_),
-                "Write results in Parquet format.")("out,o", po::value(&out_), "Write to this file instead of stdout.");
+        description().add_options()
+            ("csv,c", po::bool_switch(&write_csv_), "Write results in CSV format.")
+            ("parquet,p", po::bool_switch(&write_parquet_), "Write results in Parquet format.")
+            ("column,t", po::bool_switch(&write_columnar_), "Write columnated results.")
+            ("out,o", po::value(&out_), "Write to this file instead of stdout.");
     }
 
     bool parse(const int argc, const char *argv[]) override { // NOLINT(*-avoid-c-arrays)
@@ -38,13 +40,18 @@ public:
             return parent_result;
         }
 
-        if (write_csv_ && write_parquet_) {
-            std::cerr << "Only one of 'integer' or 'text' may be specified.\n";
+        int num_formats = 0;
+        num_formats += write_csv_ ? 1 : 0;
+        num_formats += write_parquet_ ? 1 : 0;
+        num_formats += write_columnar_ ? 1 : 0;
+
+        if (num_formats > 1) {
+            std::cerr << "Only one of 'csv', 'parquet' or 'column' may be specified.\n";
             return false;
         }
 
         // Default output format is CSV.
-        if (!write_csv_ && !write_parquet_) {
+        if (num_formats == 0) {
             write_csv_ = true;
         }
 
@@ -71,6 +78,9 @@ private:
         if (write_parquet_) {
             throw std::runtime_error("Parquet output requires a seekable stream; cannot write to stdout.");
         }
+        if (write_columnar_) {
+            return std::make_unique<ColumnarWriter>(schema);
+        }
 
         throw std::logic_error("Invariant failure: Neither write_csv or write_parquet set.");
     }
@@ -82,6 +92,9 @@ private:
         if (write_parquet_) {
             return std::make_unique<ParquetWriter>(schema, out_);
         }
+        if (write_columnar_) {
+            return std::make_unique<ColumnarWriter>(schema, out_);
+        }
 
         throw std::logic_error("Invariant failure: Neither write_csv or write_parquet set.");
     }
@@ -89,6 +102,7 @@ private:
 
     bool write_csv_{};
     bool write_parquet_{};
+    bool write_columnar_{};
     std::string out_;
 };
 
@@ -185,6 +199,7 @@ int main(const int argc, const char *argv[]) {
             const auto batch_result = chunk_to_record_batch(data_chunk, arrow_schema, result);
             writer->write(batch_result);
         }
+        writer->flush();
     } catch (const std::runtime_error &error) {
         std::cerr << "Error executing statement or writing results. " << error.what() << '\n';
         return 2;
