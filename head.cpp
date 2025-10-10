@@ -3,9 +3,9 @@
 
 #include <boost/program_options.hpp>
 
+#include "options.h"
 #include "queryplan.h"
 #include "serde.h"
-#include "options.h"
 
 constexpr int DEFAULT_NUMBER_OF_LINES = 10;
 
@@ -14,13 +14,12 @@ public:
     HeadOptions() {
         namespace po = boost::program_options;
 
-        description().add_options()
-            ("lines,n", po::value(&lines_)->default_value(DEFAULT_NUMBER_OF_LINES), "Number of results to include.")
-        ;
+        description().add_options()("lines,n", po::value(&lines_)->default_value(DEFAULT_NUMBER_OF_LINES),
+                                    "Number of results to include.");
         add_positional_argument("lines", {.min_args = 0, .max_args = 1});
     }
 
-    bool parse(const int argc, const char *argv[]) override {  // NOLINT(*-avoid-c-arrays)
+    bool parse(const int argc, const char *argv[]) override { // NOLINT(*-avoid-c-arrays)
         if (bool const parent_result = Options::parse(argc, argv); !parent_result) {
             return parent_result;
         }

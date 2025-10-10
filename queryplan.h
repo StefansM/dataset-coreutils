@@ -1,8 +1,8 @@
 #ifndef QUERYPLAN_H_
 #define QUERYPLAN_H_
 
-#include <optional>
 #include <iostream>
+#include <optional>
 #include <sstream>
 
 #include <query.h>
@@ -32,33 +32,27 @@ struct QueryPlan {
         accumulate(query_buf, parameters, order);
         accumulate(query_buf, parameters, limit);
 
-        ParameterisedQuery query {.query = query_buf.str(), .params = parameters};
+        ParameterisedQuery query{.query = query_buf.str(), .params = parameters};
         return query;
     }
 
 private:
-    template <typename T>
-    static void accumulate(
-            std::stringstream &query_buf,
-            std::vector<QueryParam> &parameters,
-            const std::optional<T> &fragment) {
+    template<typename T>
+    static void accumulate(std::stringstream &query_buf, std::vector<QueryParam> &parameters,
+                           const std::optional<T> &fragment) {
 
         if (fragment) {
             accumulate(query_buf, parameters, *fragment);
         }
     }
 
-    static void accumulate(
-            std::stringstream &query_buf,
-            std::vector<QueryParam> &parameters,
-            const QueryFragment &fragment) {
+    static void accumulate(std::stringstream &query_buf, std::vector<QueryParam> &parameters,
+                           const QueryFragment &fragment) {
 
         query_buf << fragment.get_fragment();
         auto params = fragment.get_params();
         parameters.insert(parameters.end(), params.begin(), params.end());
     }
-
 };
 
 #endif /* QUERYPLAN_H_ */
-

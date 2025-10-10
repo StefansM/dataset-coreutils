@@ -4,9 +4,9 @@
 
 #include <boost/program_options.hpp>
 
+#include "options.h"
 #include "queryplan.h"
 #include "serde.h"
-#include "options.h"
 
 
 class SortOptions final : public Options {
@@ -14,14 +14,12 @@ public:
     SortOptions() {
         namespace po = boost::program_options;
 
-        description().add_options()
-            ("field,f", po::value(&fields_)->composing(), "Field on which to sort.")
-            ("reverse,r", po::bool_switch(&reversed_), "Descending sort.")
-        ;
+        description().add_options()("field,f", po::value(&fields_)->composing(), "Field on which to sort.")(
+                "reverse,r", po::bool_switch(&reversed_), "Descending sort.");
         add_positional_argument("field", {.min_args = 1, .max_args = std::nullopt});
     }
 
-    bool parse(const int argc, const char *argv[]) override {  // NOLINT(*-avoid-c-arrays)
+    bool parse(const int argc, const char *argv[]) override { // NOLINT(*-avoid-c-arrays)
         if (const bool parent_result = Options::parse(argc, argv); !parent_result) {
             return parent_result;
         }

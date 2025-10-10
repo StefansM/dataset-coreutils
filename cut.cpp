@@ -4,10 +4,10 @@
 
 #include <boost/program_options.hpp>
 
+#include "options.h"
 #include "query.h"
 #include "queryplan.h"
 #include "serde.h"
-#include "options.h"
 
 
 class CutOptions final : public Options {
@@ -15,9 +15,7 @@ public:
     CutOptions() {
         namespace po = boost::program_options;
 
-        description().add_options()
-            ("field,f", po::value(&fields_)->composing(), "Include this field in output.")
-        ;
+        description().add_options()("field,f", po::value(&fields_)->composing(), "Include this field in output.");
         add_positional_argument("field", {.min_args = 1, .max_args = std::nullopt});
     }
 
@@ -40,10 +38,7 @@ int main(const int argc, const char *argv[]) {
         return 1;
     }
 
-    query_plan->select.emplace(
-        query_plan->select->get_tablename(),
-        options.get_fields()
-    );
+    query_plan->select.emplace(query_plan->select->get_tablename(), options.get_fields());
 
     dump_query_plan(*query_plan, std::cout);
     return 0;

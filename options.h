@@ -1,8 +1,8 @@
 #ifndef OPTIONS_H_
 #define OPTIONS_H_
 
-#include <string>
 #include <iostream>
+#include <string>
 
 #include <boost/program_options.hpp>
 
@@ -13,17 +13,11 @@ struct ArgCount {
 
 class Options {
 public:
-    Options()
-        : description_("Options") {
-
-        description_.add_options()
-            ("help,h", "Show this help message")
-        ;
-    }
-    Options (const Options&) = delete;
-    Options& operator= (const Options&) = delete;
-    Options (Options&&) = delete;
-    Options& operator= (Options&&) = delete;
+    Options() : description_("Options") { description_.add_options()("help,h", "Show this help message"); }
+    Options(const Options &) = delete;
+    Options &operator=(const Options &) = delete;
+    Options(Options &&) = delete;
+    Options &operator=(Options &&) = delete;
 
     virtual ~Options() = default;
 
@@ -32,13 +26,7 @@ public:
 
         try {
             po::variables_map var_map;
-            po::store(
-                po::command_line_parser(argc, argv)
-                    .options(description_)
-                    .positional(positional_)
-                    .run(),
-                var_map
-            );
+            po::store(po::command_line_parser(argc, argv).options(description_).positional(positional_).run(), var_map);
             po::notify(var_map);
 
             if (var_map.count("help") != 0U) {
@@ -46,12 +34,10 @@ public:
                 return false;
             }
 
-            for (const auto &[arg_name, min_args] : min_args_) {
+            for (const auto &[arg_name, min_args]: min_args_) {
                 if (var_map.count(arg_name) < min_args) {
-                    std::cerr
-                        << "Argument '" << arg_name << "' must be supplied at least " << min_args << " times.\n\n"
-                        << description_
-                        << '\n';
+                    std::cerr << "Argument '" << arg_name << "' must be supplied at least " << min_args << " times.\n\n"
+                              << description_ << '\n';
                     return false;
                 }
             }
@@ -67,7 +53,7 @@ public:
     boost::program_options::positional_options_description positional() { return positional_; }
 
 protected:
-    void add_positional_argument(const std::string& arg_name, const ArgCount& arg_count) {
+    void add_positional_argument(const std::string &arg_name, const ArgCount &arg_count) {
         const int max_args = arg_count.max_args.value_or(-1);
         const unsigned int min_args = arg_count.min_args;
 
@@ -83,4 +69,3 @@ private:
 };
 
 #endif /* OPTIONS_H_ */
-

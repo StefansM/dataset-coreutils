@@ -33,7 +33,7 @@ public:
 
     static QueryParam decode(const Json::Value &fragment) {
         const auto type = fragment["type"].asString();
-        const auto& value = fragment["value"];
+        const auto &value = fragment["value"];
         if (type == "NUMERIC") {
             return QueryParam(value.asInt64());
         }
@@ -51,7 +51,7 @@ public:
         value["tablename"] = fragment.get_tablename();
 
         int i = 0;
-        for (const auto &col : fragment.get_columns()) {
+        for (const auto &col: fragment.get_columns()) {
             value["columns"][i++] = col;
         }
 
@@ -60,7 +60,7 @@ public:
 
     static SelectFragment decode(const Json::Value &fragment) {
         std::vector<std::string> columns;
-        for (const auto &col : fragment["columns"]) {
+        for (const auto &col: fragment["columns"]) {
             columns.push_back(col.asString());
         }
 
@@ -75,7 +75,7 @@ public:
         value["conditions"] = Json::Value();
 
         int i = 0;
-        for (const auto &[column, predicate, param] : fragment.get_conditions()) {
+        for (const auto &[column, predicate, param]: fragment.get_conditions()) {
             Json::Value json_cond;
             json_cond["column"] = column;
             json_cond["predicate"] = predicate;
@@ -89,7 +89,7 @@ public:
 
     static WhereFragment decode(const Json::Value &json) {
         WhereFragment fragment;
-        for (const auto &cond : json["conditions"]) {
+        for (const auto &cond: json["conditions"]) {
             const auto column = cond["column"].asString();
             const auto predicate = cond["predicate"].asString();
             const auto value = QueryParamSerDes::decode(cond["value"]);
@@ -109,9 +109,7 @@ public:
         return value;
     }
 
-    static LimitFragment decode(const Json::Value &json) {
-        return LimitFragment {json["limit"].asUInt()};
-    }
+    static LimitFragment decode(const Json::Value &json) { return LimitFragment{json["limit"].asUInt()}; }
 };
 
 class OrderSerDes {
@@ -225,4 +223,3 @@ inline void dump_query_plan(const QueryPlan &query_plan, std::ostream &out) {
 }
 
 #endif /* SERDE_H_ */
-

@@ -9,7 +9,7 @@ struct ArrowException final : std::runtime_error {
 };
 
 
-template <typename T>
+template<typename T>
 T assign_or_raise(arrow::Result<T> result) {
     if (!result.ok()) {
         throw ArrowException("Error doing Arrow action. " + result.status().ToString());
@@ -18,4 +18,3 @@ T assign_or_raise(arrow::Result<T> result) {
 }
 
 #endif /* ARROW_RESULT_H_ */
-

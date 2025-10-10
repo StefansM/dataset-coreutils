@@ -3,10 +3,10 @@
 
 #include <boost/program_options.hpp>
 
+#include "options.h"
 #include "query.h"
 #include "queryplan.h"
 #include "serde.h"
-#include "options.h"
 
 
 class GrepOptions final : public Options {
@@ -14,18 +14,16 @@ public:
     GrepOptions() {
         namespace po = boost::program_options;
 
-        description().add_options()
-            ("field,f", po::value(&field_), "Field to search.")
-            ("value,v", po::value(&value_str_), "Value to search for.")
-            ("predicate,p", po::value(&predicate_), "Predicate in the search ('=', 'LIKE', etc).")
-            ("integer,i", po::bool_switch(&is_integer_), "Value is an integer column.")
-            ("text,t", po::bool_switch(&is_text_), "Value is an text column.")
-        ;
+        description().add_options()("field,f", po::value(&field_),
+                                    "Field to search.")("value,v", po::value(&value_str_), "Value to search for.")(
+                "predicate,p", po::value(&predicate_), "Predicate in the search ('=', 'LIKE', etc).")(
+                "integer,i", po::bool_switch(&is_integer_),
+                "Value is an integer column.")("text,t", po::bool_switch(&is_text_), "Value is an text column.");
         add_positional_argument("field", {.min_args = 1, .max_args = 1});
         add_positional_argument("value", {.min_args = 1, .max_args = 1});
     }
 
-    bool parse(const int argc, const char *argv[]) override {  // NOLINT(*-avoid-c-arrays)
+    bool parse(const int argc, const char *argv[]) override { // NOLINT(*-avoid-c-arrays)
         if (bool const parent_result = Options::parse(argc, argv); !parent_result) {
             return parent_result;
         }
@@ -72,7 +70,7 @@ public:
 
     [[nodiscard]] std::string get_field() const { return field_; }
     [[nodiscard]] std::string get_predicate() const { return predicate_; }
-    [[nodiscard]] QueryParam get_value() const { return { *value_ }; }
+    [[nodiscard]] QueryParam get_value() const { return {*value_}; }
 
 private:
     std::string field_;
