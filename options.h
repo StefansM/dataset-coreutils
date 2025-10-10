@@ -1,7 +1,7 @@
-#ifndef OPTIONS_H_
-#define OPTIONS_H_
+#pragma once
 
 #include <iostream>
+#include <optional>
 #include <string>
 
 #include <boost/program_options.hpp>
@@ -67,5 +67,3 @@ private:
 
     std::map<std::string, unsigned int> min_args_;
 };
-
-#endif /* OPTIONS_H_ */

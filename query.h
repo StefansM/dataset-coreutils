@@ -1,5 +1,4 @@
-#ifndef QUERY_H_
-#define QUERY_H_
+#pragma once
 
 #include <algorithm>
 #include <cstdint>
@@ -171,5 +170,3 @@ private:
     std::vector<std::string> columns_;
     bool reverse_;
 };
-
-#endif /* QUERY_H_ */

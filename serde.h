@@ -1,5 +1,4 @@
-#ifndef SERDE_H_
-#define SERDE_H_
+#pragma once
 
 #include <iostream>
 #include <optional>
@@ -221,5 +220,3 @@ inline void dump_query_plan(const QueryPlan &query_plan, std::ostream &out) {
     const Json::Value query_plan_encoded = QueryPlanSerDes::encode(query_plan);
     dump_json(query_plan_encoded, out);
 }
-
-#endif /* SERDE_H_ */

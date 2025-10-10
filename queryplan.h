@@ -1,5 +1,4 @@
-#ifndef QUERYPLAN_H_
-#define QUERYPLAN_H_
+#pragma once
 
 #include <iostream>
 #include <optional>
@@ -54,5 +53,3 @@ private:
         parameters.insert(parameters.end(), params.begin(), params.end());
     }
 };
-
-#endif /* QUERYPLAN_H_ */

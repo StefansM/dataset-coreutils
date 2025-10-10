@@ -1,5 +1,4 @@
-#ifndef WRITER_H_
-#define WRITER_H_
+#pragma once
 
 #include <memory>
 #include <string>
@@ -77,5 +76,3 @@ public:
     CsvWriter(std::shared_ptr<arrow::Schema> schema, const int fd) :
         ArrowDatasetWriter(std::move(schema), fd, std::make_shared<file_format>()) {}
 };
-
-#endif /* WRITER_H_ */

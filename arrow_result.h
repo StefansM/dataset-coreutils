@@ -1,5 +1,4 @@
-#ifndef ARROW_RESULT_H_
-#define ARROW_RESULT_H_
+#pragma once
 
 #include <arrow/result.h>
 #include <string>
@@ -16,5 +15,3 @@ T assign_or_raise(arrow::Result<T> result) {
     }
     return *result;
 }
-
-#endif /* ARROW_RESULT_H_ */
