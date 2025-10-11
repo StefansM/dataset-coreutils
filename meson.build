@@ -13,6 +13,7 @@ cc =  meson.get_compiler('cpp')
 duckdbdep = cc.find_library('duckdb')
 
 common_files = [
+  'query.cpp',
   'query.h',
   'serde.cpp',
   'serde.h',

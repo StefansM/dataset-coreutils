@@ -15,8 +15,10 @@ public:
     CatOptions() {
         namespace po = boost::program_options;
 
+        // clang-format off
         description().add_options()
         ("dataset,d", po::value(&dataset_), "Dataset location");
+        // clang-format on
         add_positional_argument("dataset", {.min_args = 1, .max_args = 1});
     }
 

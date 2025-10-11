@@ -15,7 +15,10 @@ public:
     CutOptions() {
         namespace po = boost::program_options;
 
-        description().add_options()("field,f", po::value(&fields_)->composing(), "Include this field in output.");
+        // clang-format off
+        description().add_options()
+        ("field,f", po::value(&fields_)->composing(), "Include this field in output.");
+        // clang-format on
         add_positional_argument("field", {.min_args = 1, .max_args = std::nullopt});
     }
 

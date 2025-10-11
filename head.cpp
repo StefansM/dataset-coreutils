@@ -14,8 +14,10 @@ public:
     HeadOptions() {
         namespace po = boost::program_options;
 
-        description().add_options()("lines,n", po::value(&lines_)->default_value(DEFAULT_NUMBER_OF_LINES),
-                                    "Number of results to include.");
+        // clang-format off
+        description().add_options()
+        ("lines,n", po::value(&lines_)->default_value(DEFAULT_NUMBER_OF_LINES), "Number of results to include.");
+        // clang-format on
         add_positional_argument("lines", {.min_args = 0, .max_args = 1});
     }
 
