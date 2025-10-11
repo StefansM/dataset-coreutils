@@ -29,7 +29,7 @@ public:
             po::store(po::command_line_parser(argc, argv).options(description_).positional(positional_).run(), var_map);
             po::notify(var_map);
 
-            if (var_map.count("help") != 0U) {
+            if (var_map.contains("help")) {
                 std::cerr << description_ << '\n';
                 return false;
             }

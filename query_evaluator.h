@@ -13,7 +13,7 @@ struct DuckDbException final : std::runtime_error {
     explicit DuckDbException(const std::string &msg);
 };
 
-enum class ExitStatus {
+enum class ExitStatus : std::int8_t {
     SUCCESS = 0,
     QUERY_GENERATION_ERROR = 1,
     EXECUTION_ERROR = 2,
@@ -21,6 +21,6 @@ enum class ExitStatus {
 };
 
 ExitStatus evaluate_query(
-    const std::optional<QueryPlan> &query_plan,
+    const QueryPlan &query_plan,
     const std::function<std::unique_ptr<Writer> (const std::shared_ptr<arrow::Schema> &)> &writer_factory
 );

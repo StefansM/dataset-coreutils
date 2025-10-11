@@ -8,7 +8,7 @@
 
 struct ParameterisedQuery {
     std::string query;
-    std::vector<QueryParam> params;
+    std::vector<ColumnQueryParam> params;
 };
 
 struct QueryPlan {
@@ -29,7 +29,7 @@ struct QueryPlan {
         }
 
         std::stringstream query_buf;
-        std::vector<QueryParam> parameters;
+        std::vector<ColumnQueryParam> parameters;
 
         accumulate(query_buf, parameters, select);
         accumulate(query_buf, parameters, where);
@@ -42,7 +42,7 @@ struct QueryPlan {
 
 private:
     template<typename T>
-    static void accumulate(std::stringstream &query_buf, std::vector<QueryParam> &parameters,
+    static void accumulate(std::stringstream &query_buf, std::vector<ColumnQueryParam> &parameters,
                            const std::optional<T> &fragment) {
 
         if (fragment) {
@@ -50,7 +50,7 @@ private:
         }
     }
 
-    static void accumulate(std::stringstream &query_buf, std::vector<QueryParam> &parameters,
+    static void accumulate(std::stringstream &query_buf, std::vector<ColumnQueryParam> &parameters,
                            const QueryFragment &fragment) {
 
         query_buf << fragment.get_fragment();

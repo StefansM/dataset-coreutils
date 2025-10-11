@@ -35,12 +35,17 @@ private:
     std::variant<std::string, std::int64_t> value_;
 };
 
+struct ColumnQueryParam {
+    std::string column;
+    QueryParam value;
+};
+
 
 class QueryFragment {
 public:
     [[nodiscard]] virtual std::string get_fragment() const = 0;
 
-    [[nodiscard]] virtual std::vector<QueryParam> get_params() const { return {}; }
+    [[nodiscard]] virtual std::vector<ColumnQueryParam> get_params() const { return {}; }
 
     QueryFragment() = default;
     virtual ~QueryFragment() = default;
@@ -109,12 +114,12 @@ public:
         return stream.str();
     }
 
-    [[nodiscard]] std::vector<QueryParam> get_params() const override {
-        std::vector<QueryParam> params;
+    [[nodiscard]] std::vector<ColumnQueryParam> get_params() const override {
+        std::vector<ColumnQueryParam> params;
         params.reserve(conditions_.size());
 
         for (const auto &c: conditions_) {
-            params.emplace_back(c.value);
+            params.emplace_back(ColumnQueryParam {.column = c.column, .value = {c.value}});
         }
 
         return params;

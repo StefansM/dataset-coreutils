@@ -109,5 +109,5 @@ int main(const int argc, const char *argv[]) {
         return options.get_writer(schema);
     };
 
-    return static_cast<int>(evaluate_query(query_plan, writer_factory));
+    return static_cast<int>(evaluate_query(*query_plan, writer_factory));
 }

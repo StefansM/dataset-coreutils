@@ -14,12 +14,15 @@ public:
     GrepOptions() {
         namespace po = boost::program_options;
 
-        description().add_options()("field,f", po::value(&field_),
-                                    "Field to search.")("value,v", po::value(&value_str_), "Value to search for.")(
-                "predicate,p", po::value(&predicate_), "Predicate in the search ('=', 'LIKE', etc).")(
-                "integer,i", po::bool_switch(&is_integer_),
-                "Value is an integer column.")("text,t", po::bool_switch(&is_text_), "Value is an text column.");
+        // clang-format off
+        description().add_options()
+        ("field,f", po::value(&field_), "Field to search.")("value,v", po::value(&value_str_), "Value to search for.")
+        ("predicate,p", po::value(&predicate_), "Predicate in the search ('=', 'LIKE', etc).")
+        ("integer,i", po::bool_switch(&is_integer_), "Value is an integer column.")
+        ("text,t", po::bool_switch(&is_text_), "Value is a text column.");
+        // clang-format on
         add_positional_argument("field", {.min_args = 1, .max_args = 1});
+        add_positional_argument("predicate", {.min_args = 1, .max_args = 1});
         add_positional_argument("value", {.min_args = 1, .max_args = 1});
     }
 
