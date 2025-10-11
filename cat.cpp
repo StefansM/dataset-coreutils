@@ -5,6 +5,7 @@
 
 #include "options.h"
 #include "query.h"
+#include "query_evaluator.h"
 #include "queryplan.h"
 #include "serde.h"
 
@@ -25,7 +26,6 @@ private:
     std::string dataset_;
 };
 
-
 int main(const int argc, const char *argv[]) {
     CatOptions options;
     if (!options.parse(argc, argv)) {
@@ -35,6 +35,5 @@ int main(const int argc, const char *argv[]) {
     QueryPlan query_plan;
     query_plan.select = SelectFragment(options.get_dataset(), {"*"});
 
-    dump_query_plan(query_plan, std::cout);
-    return 0;
+    return static_cast<int>(dump_or_eval_query_plan(query_plan));
 }

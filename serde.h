@@ -1,12 +1,16 @@
 #pragma once
 
+#include <cstdio>
 #include <iostream>
 #include <optional>
+#include <unistd.h>
 
 #include <json/json.h>
 
 #include "query.h"
+#include "query_evaluator.h"
 #include "queryplan.h"
+#include "writer.h"
 
 class QueryParamSerDes final {
 public:
@@ -146,9 +150,7 @@ public:
         return value;
     }
 
-    static SqlFragment decode(const Json::Value &json) {
-        return SqlFragment {json["sql"].asString()};
-    }
+    static SqlFragment decode(const Json::Value &json) { return SqlFragment{json["sql"].asString()}; }
 };
 
 class QueryPlanSerDes final {
@@ -185,7 +187,7 @@ public:
     }
 
     static QueryPlan decode(const Json::Value &root) {
-        QueryPlan query_plan {};
+        QueryPlan query_plan{};
 
         if (const auto &select = root["select"]; select != Json::Value::null) {
             query_plan.select = SelectSerDes::decode(select);
@@ -242,4 +244,12 @@ inline std::optional<QueryPlan> load_query_plan(std::istream &in) {
 inline void dump_query_plan(const QueryPlan &query_plan, std::ostream &out) {
     const Json::Value query_plan_encoded = QueryPlanSerDes::encode(query_plan);
     dump_json(query_plan_encoded, out);
+}
+
+inline ExitStatus dump_or_eval_query_plan(const QueryPlan &query_plan) {
+    if (isatty(fileno(stdout)) == 1) {
+        return evaluate_query(query_plan, default_writer);
+    }
+    dump_query_plan(query_plan, std::cout);
+    return ExitStatus::SUCCESS;
 }

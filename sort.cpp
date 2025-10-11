@@ -50,6 +50,5 @@ int main(const int argc, const char *argv[]) {
 
     query_plan->order.emplace(options.get_fields(), options.reversed());
 
-    dump_query_plan(*query_plan, std::cout);
-    return 0;
+    return static_cast<int>(dump_or_eval_query_plan(*query_plan));
 }

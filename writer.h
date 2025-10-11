@@ -13,6 +13,18 @@
 
 #include "arrow_result.h"
 
+inline std::shared_ptr<arrow::io::OutputStream> open_stdout_stream() {
+    int const stdout_fd = fileno(stdout);
+    if (stdout_fd == -1) {
+        throw std::runtime_error("Unable to obtain file number of stdout.");
+    }
+    return assign_or_raise(arrow::io::FileOutputStream::Open(stdout_fd));
+}
+
+inline std::shared_ptr<std::ostream> non_owning_stdout() {
+    return std::shared_ptr<std::ostream>(&std::cout, [](std::ostream *) {});
+}
+
 class Writer {
 public:
     virtual void write(std::shared_ptr<arrow::RecordBatch> batch) = 0;
@@ -20,6 +32,7 @@ public:
 
     virtual ~Writer() = default;
     Writer() = default;
+
     Writer(const Writer &) = delete;
     Writer &operator=(const Writer &) = delete;
     Writer(Writer &&) = delete;
@@ -32,9 +45,9 @@ protected:
         const std::shared_ptr<arrow::dataset::FileFormat> &file_format) :
         ArrowDatasetWriter(std::move(schema), file_format, assign_or_raise(arrow::io::FileOutputStream::Open(path))) {}
 
-    ArrowDatasetWriter(std::shared_ptr<arrow::Schema> schema, const int fd,
+    ArrowDatasetWriter(std::shared_ptr<arrow::Schema> schema,
         const std::shared_ptr<arrow::dataset::FileFormat> &file_format) :
-        ArrowDatasetWriter(std::move(schema), file_format, assign_or_raise(arrow::io::FileOutputStream::Open(fd))) {}
+        ArrowDatasetWriter(std::move(schema), file_format, open_stdout_stream()) {}
 
 
     ArrowDatasetWriter(std::shared_ptr<arrow::Schema> schema,
@@ -66,9 +79,6 @@ class ParquetWriter final : public ArrowDatasetWriter {
 public:
     ParquetWriter(std::shared_ptr<arrow::Schema> schema, const std::string &path) :
         ArrowDatasetWriter(std::move(schema), path, std::make_shared<file_format>()) {}
-
-    ParquetWriter(std::shared_ptr<arrow::Schema> schema, const int fd) :
-        ArrowDatasetWriter(std::move(schema), fd, std::make_shared<file_format>()) {}
 };
 
 class CsvWriter final : public ArrowDatasetWriter {
@@ -78,15 +88,15 @@ public:
     CsvWriter(std::shared_ptr<arrow::Schema> schema, const std::string &path) :
         ArrowDatasetWriter(std::move(schema), path, std::make_shared<file_format>()) {}
 
-    CsvWriter(std::shared_ptr<arrow::Schema> schema, const int fd) :
-        ArrowDatasetWriter(std::move(schema), fd, std::make_shared<file_format>()) {}
+    explicit CsvWriter(std::shared_ptr<arrow::Schema> schema) :
+        ArrowDatasetWriter(std::move(schema), std::make_shared<file_format>()) {}
 };
 
 class ColumnarWriter final : public Writer {
 public:
     explicit ColumnarWriter(std::shared_ptr<arrow::Schema> schema) :
         schema_(std::move(schema)),
-        stream_(std::shared_ptr<std::ostream>(&std::cout, [](std::ostream *) {})),
+        stream_(non_owning_stdout()),
         print_options_(print_options()) {
 
         init();
@@ -184,3 +194,7 @@ private:
     std::vector<std::vector<std::string>> rendered_rows_;
     std::vector<std::size_t> max_col_width_;
 };
+
+inline std::unique_ptr<Writer> default_writer(const std::shared_ptr<arrow::Schema> &schema) {
+    return std::make_unique<CsvWriter>(schema);
+}

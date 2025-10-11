@@ -16,14 +16,19 @@ common_files = [
   'query.h',
   'serde.h',
   'options.h',
+  'writer.h',
+  'query_evaluator.cpp',
+  'query_evaluator.h',
 ]
+
+common_deps = [jsondep, boostdep, duckdbdep, arrowdep, arrowdsdep]
 
 cat_exe = executable(
   'dcat',
   'cat.cpp',
   common_files,
   install : true,
-  dependencies : [jsondep, boostdep],
+  dependencies : common_deps,
 )
 
 cut_exe = executable(
@@ -31,7 +36,7 @@ cut_exe = executable(
   'cut.cpp',
   common_files,
   install : true,
-  dependencies : [jsondep, boostdep],
+  dependencies : common_deps,
 )
 
 grep_exe = executable(
@@ -39,7 +44,7 @@ grep_exe = executable(
   'grep.cpp',
   common_files,
   install : true,
-  dependencies : [jsondep, boostdep],
+  dependencies : common_deps,
 )
 
 head_exe = executable(
@@ -47,7 +52,7 @@ head_exe = executable(
   'head.cpp',
   common_files,
   install : true,
-  dependencies : [jsondep, boostdep],
+  dependencies : common_deps,
 )
 
 sort_exe = executable(
@@ -55,7 +60,7 @@ sort_exe = executable(
   'sort.cpp',
   common_files,
   install : true,
-  dependencies : [jsondep, boostdep],
+  dependencies : common_deps,
 )
 
 sql_exe = executable(
@@ -63,7 +68,7 @@ sql_exe = executable(
   'sql.cpp',
   common_files,
   install : true,
-  dependencies : [jsondep, boostdep],
+  dependencies : common_deps,
 )
 
 eval_exe = executable(
@@ -71,5 +76,5 @@ eval_exe = executable(
   'eval.cpp',
   common_files,
   install : true,
-  dependencies : [jsondep, boostdep, duckdbdep, arrowdep, arrowdsdep],
+  dependencies : common_deps,
 )
