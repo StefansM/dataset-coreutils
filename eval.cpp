@@ -7,6 +7,7 @@
 
 #include "options.h"
 #include "query_evaluator.h"
+#include "queryplan.h"
 #include "serde.h"
 #include "writer.h"
 

@@ -14,8 +14,10 @@ duckdbdep = cc.find_library('duckdb')
 
 common_files = [
   'query.h',
+  'serde.cpp',
   'serde.h',
   'options.h',
+  'writer.cpp',
   'writer.h',
   'query_evaluator.cpp',
   'query_evaluator.h',

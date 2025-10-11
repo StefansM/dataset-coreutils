@@ -4,8 +4,7 @@
 #include <memory>
 #include <optional>
 
-#include <arrow/record_batch.h>
-#include <duckdb.hpp>
+#include <arrow/api.h>
 
 class Writer;
 struct QueryPlan;
