@@ -26,7 +26,7 @@ public:
     [[nodiscard]] ParamType type() const;
 
 private:
-    QueryParam(std::string text, const ParamType type);
+    QueryParam(std::string text, ParamType type);
 
     ParamType type_;
     std::variant<std::string, std::int64_t> value_;
@@ -86,7 +86,7 @@ private:
 
 class LimitFragment final : public QueryFragment {
 public:
-    explicit LimitFragment(const std::uint32_t limit);
+    explicit LimitFragment(std::uint32_t limit);
 
     [[nodiscard]] std::string get_fragment() const override;
 
@@ -98,7 +98,7 @@ private:
 
 class OrderFragment final : public QueryFragment {
 public:
-    OrderFragment(std::vector<std::string> columns, const bool reverse);
+    OrderFragment(std::vector<std::string> columns, bool reverse);
 
     [[nodiscard]] std::string get_fragment() const override;
 

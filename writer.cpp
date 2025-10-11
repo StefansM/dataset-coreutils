@@ -1,4 +1,9 @@
+#include <fstream>
+
+#include "arrow_result.h"
+
 #include "writer.h"
+
 
 std::shared_ptr<arrow::io::OutputStream> open_stdout_stream() {
     int const stdout_fd = fileno(stdout);
@@ -94,10 +99,10 @@ void ColumnarWriter::flush() {
         for (std::size_t i = 0; i < row.size(); ++i) {
             const auto width = max_col_width_[i];
             const auto delimiter = i == 0 ? "" : " ";
-            (*stream_) << delimiter << std::left << std::setw(width);
-            (*stream_) << row[i];
+            *stream_ << delimiter << std::left << std::setw(width);
+            *stream_ << row[i];
         }
-        (*stream_) << '\n';
+        *stream_ << '\n';
     }
 }
 

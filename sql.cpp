@@ -1,4 +1,3 @@
-#include <iostream>
 #include <string>
 
 #include <boost/program_options.hpp>
@@ -13,8 +12,10 @@ public:
     SqlOptions() {
         namespace po = boost::program_options;
 
+        // clang-format off
         description().add_options()
         ("sql,s", po::value(&sql_), "SQL query to execute.");
+        // clang-format on
         add_positional_argument("sql", {.min_args = 1, .max_args = 1});
     }
 

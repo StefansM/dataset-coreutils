@@ -1,4 +1,3 @@
-#include <cstdio>
 #include <iostream>
 #include <string>
 
@@ -6,8 +5,8 @@
 #include <duckdb.hpp>
 
 #include "options.h"
-#include "query_evaluator.h"
 #include "queryplan.h"
+#include "query_evaluator.h"
 #include "serde.h"
 #include "writer.h"
 

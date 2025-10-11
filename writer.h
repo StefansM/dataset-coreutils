@@ -1,6 +1,5 @@
 #pragma once
 
-#include <fstream>
 #include <iostream>
 #include <memory>
 #include <regex>
@@ -10,8 +9,6 @@
 #include <arrow/api.h>
 #include <arrow/dataset/api.h>
 #include <arrow/filesystem/api.h>
-
-#include "arrow_result.h"
 
 class Writer;
 
