@@ -26,6 +26,10 @@ public:
         return std::get<T>(value_);
     }
 
+    bool is_null() const {
+        return type_ == ParamType::UNKNOWN && std::get<std::string>(value_) == "NULL";
+    }
+
     [[nodiscard]] ParamType type() const { return type_; }
 
 private:
@@ -109,7 +113,12 @@ public:
             } else {
                 stream << "\n   AND ";
             }
-            stream << c.column << " " << c.predicate << " ?";
+
+            if (c.value.is_null()) {
+                stream << c.column << " " << c.predicate << " NULL";
+            } else {
+                stream << c.column << " " << c.predicate << " ?";
+            }
         }
         return stream.str();
     }
@@ -119,7 +128,9 @@ public:
         params.reserve(conditions_.size());
 
         for (const auto &c: conditions_) {
-            params.emplace_back(ColumnQueryParam {.column = c.column, .value = {c.value}});
+            if (!c.value.is_null()) {
+                params.emplace_back(ColumnQueryParam {.column = c.column, .value = {c.value}});
+            }
         }
 
         return params;
