@@ -18,10 +18,15 @@
 #include "query_evaluator.h"
 
 
-DuckDbException::DuckDbException(const std::string &msg) : std::runtime_error(msg) {}
+DuckDbException::DuckDbException(
+    const std::string &msg
+) :
+    std::runtime_error(msg) {}
 
 template<typename T>
-T dd_check(T result) {
+T dd_check(
+    T result
+) {
     if (result->HasError()) {
         throw DuckDbException("Error doing DuckDb action. " + result->GetErrorObject().Message());
     }
@@ -42,14 +47,20 @@ static duckdb::Value infer_value_from_schema(
             try {
                 return duckdb::Value::CreateValue<std::int64_t>(std::stoll(string_value));
             } catch (const std::exception &e) {
-                throw std::runtime_error("Could not convert paramter "s + string_value + " to integer for column '" + param.column + "': " + e.what());
+                throw std::runtime_error(
+                    "Could not convert paramter "s + string_value + " to integer for column '" + param.column + "': " +
+                    e.what()
+                );
             }
         }
         if (col_type == "DOUBLE" || col_type == "FLOAT") {
             try {
                 return duckdb::Value::CreateValue<double>(std::stod(string_value));
             } catch (const std::exception &e) {
-                throw std::runtime_error("Could not convert paramter "s + string_value + " to float for column '" + param.column + "': " + e.what());
+                throw std::runtime_error(
+                    "Could not convert paramter "s + string_value + " to float for column '" + param.column + "': " + e.
+                    what()
+                );
             }
         }
         if (col_type == "VARCHAR" || col_type == "TEXT") {
@@ -60,7 +71,10 @@ static duckdb::Value infer_value_from_schema(
     throw std::runtime_error("Could not find column '" + param.column + "' in schema.");
 }
 
-static duckdb::vector<duckdb::Value> convert_params_to_duckdb(const std::vector<ColumnQueryParam> &query_params, const std::unordered_map<std::string, std::string> &param_types) {
+static duckdb::vector<duckdb::Value> convert_params_to_duckdb(
+    const std::vector<ColumnQueryParam> &query_params,
+    const std::unordered_map<std::string, std::string> &param_types
+) {
     duckdb::vector<duckdb::Value> duckdb_params;
 
     int i = 0;
@@ -89,7 +103,9 @@ static duckdb::vector<duckdb::Value> convert_params_to_duckdb(const std::vector<
     return duckdb_params;
 }
 
-static std::shared_ptr<arrow::Schema> duckdb_schema_to_arrow(const std::unique_ptr<duckdb::QueryResult> &result) {
+static std::shared_ptr<arrow::Schema> duckdb_schema_to_arrow(
+    const std::unique_ptr<duckdb::QueryResult> &result
+) {
     ArrowSchema duck_arrow_schema{};
     duckdb::ArrowConverter::ToArrowSchema(&duck_arrow_schema, result->types, result->names, result->client_properties);
 
@@ -97,9 +113,11 @@ static std::shared_ptr<arrow::Schema> duckdb_schema_to_arrow(const std::unique_p
 }
 
 
-std::shared_ptr<arrow::RecordBatch> chunk_to_record_batch(const std::unique_ptr<duckdb::DataChunk> &data_chunk,
-                                                          std::shared_ptr<arrow::Schema> arrow_schema,
-                                                          const std::unique_ptr<duckdb::QueryResult> &result) {
+std::shared_ptr<arrow::RecordBatch> chunk_to_record_batch(
+    const std::unique_ptr<duckdb::DataChunk> &data_chunk,
+    std::shared_ptr<arrow::Schema> arrow_schema,
+    const std::unique_ptr<duckdb::QueryResult> &result
+) {
     ArrowArray arrow_array{};
 
     // TODO: No need to recreate this multiple times
@@ -110,7 +128,10 @@ std::shared_ptr<arrow::RecordBatch> chunk_to_record_batch(const std::unique_ptr<
     return assign_or_raise(arrow::ImportRecordBatch(&arrow_array, std::move(arrow_schema)));
 }
 
-static std::unordered_map<std::string, std::string> get_schema(const QueryPlan &query_plan, duckdb::Connection &conn) {
+static std::unordered_map<std::string, std::string> get_schema(
+    const QueryPlan &query_plan,
+    duckdb::Connection &conn
+) {
     using namespace std::string_literals;
 
     QueryPlan base_query = query_plan;
@@ -147,7 +168,9 @@ static std::unordered_map<std::string, std::string> get_schema(const QueryPlan &
 
 ExitStatus evaluate_query(
     const QueryPlan &query_plan,
-    const std::function<std::unique_ptr<Writer> (const std::shared_ptr<arrow::Schema> &)> &writer_factory
+    const std::function<std::unique_ptr<Writer> (
+        const std::shared_ptr<arrow::Schema> &
+    )> &writer_factory
 ) {
     auto query = query_plan.generate_query();
     if (!query) {
@@ -185,5 +208,5 @@ ExitStatus evaluate_query(
         std::cerr << "Programming error executing statement or writing results. " << error.what() << '\n';
         return ExitStatus::PROGRAMMING_ERROR;
     }
-    return  ExitStatus::SUCCESS;
+    return ExitStatus::SUCCESS;
 }

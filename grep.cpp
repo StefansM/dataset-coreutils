@@ -26,7 +26,10 @@ public:
         add_positional_argument("value", {.min_args = 1, .max_args = 1});
     }
 
-    bool parse(const int argc, const char *argv[]) override { // NOLINT(*-avoid-c-arrays)
+    bool parse(
+        const int argc,
+        const char *argv[]
+    ) override { // NOLINT(*-avoid-c-arrays)
         if (bool const parent_result = Options::parse(argc, argv); !parent_result) {
             return parent_result;
         }
@@ -53,7 +56,6 @@ public:
                 std::cerr << "Couldn't convert '" << value_str_ << "' to number: " << e.what() << '\n';
                 return false;
             }
-
         } else if (is_text_) {
             if (predicate_.empty()) {
                 predicate_ = "SIMILAR TO";
@@ -71,9 +73,17 @@ public:
         return true;
     }
 
-    [[nodiscard]] std::string get_field() const { return field_; }
-    [[nodiscard]] std::string get_predicate() const { return predicate_; }
-    [[nodiscard]] QueryParam get_value() const { return {*value_}; }
+    [[nodiscard]] std::string get_field() const {
+        return field_;
+    }
+
+    [[nodiscard]] std::string get_predicate() const {
+        return predicate_;
+    }
+
+    [[nodiscard]] QueryParam get_value() const {
+        return {*value_};
+    }
 
 private:
     std::string field_;
@@ -86,7 +96,10 @@ private:
 };
 
 
-int main(const int argc, const char *argv[]) {
+int main(
+    const int argc,
+    const char *argv[]
+) {
     GrepOptions options;
     if (!options.parse(argc, argv)) {
         return 1;

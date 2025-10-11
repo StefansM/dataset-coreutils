@@ -21,7 +21,10 @@ public:
         add_positional_argument("lines", {.min_args = 0, .max_args = 1});
     }
 
-    bool parse(const int argc, const char *argv[]) override { // NOLINT(*-avoid-c-arrays)
+    bool parse(
+        const int argc,
+        const char *argv[]
+    ) override { // NOLINT(*-avoid-c-arrays)
         if (bool const parent_result = Options::parse(argc, argv); !parent_result) {
             return parent_result;
         }
@@ -29,14 +32,19 @@ public:
         return true;
     }
 
-    [[nodiscard]] std::uint32_t get_lines() const { return lines_; }
+    [[nodiscard]] std::uint32_t get_lines() const {
+        return lines_;
+    }
 
 private:
     std::uint32_t lines_{};
 };
 
 
-int main(const int argc, const char *argv[]) {
+int main(
+    const int argc,
+    const char *argv[]
+) {
     HeadOptions options;
     if (!options.parse(argc, argv)) {
         return 1;

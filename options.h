@@ -13,15 +13,33 @@ struct ArgCount {
 
 class Options {
 public:
-    Options() : description_("Options") { description_.add_options()("help,h", "Show this help message"); }
-    Options(const Options &) = delete;
-    Options &operator=(const Options &) = delete;
-    Options(Options &&) = delete;
-    Options &operator=(Options &&) = delete;
+    Options() :
+        description_("Options") {
+        description_.add_options()("help,h", "Show this help message");
+    }
+
+    Options(
+        const Options &
+    ) = delete;
+
+    Options &operator=(
+        const Options &
+    ) = delete;
+
+    Options(
+        Options &&
+    ) = delete;
+
+    Options &operator=(
+        Options &&
+    ) = delete;
 
     virtual ~Options() = default;
 
-    virtual bool parse(const int argc, const char *argv[]) { // NOLINT(*-avoid-c-arrays)
+    virtual bool parse(
+        const int argc,
+        const char *argv[]
+    ) { // NOLINT(*-avoid-c-arrays)
         namespace po = boost::program_options;
 
         try {
@@ -37,7 +55,7 @@ public:
             for (const auto &[arg_name, min_args]: min_args_) {
                 if (var_map.count(arg_name) < min_args) {
                     std::cerr << "Argument '" << arg_name << "' must be supplied at least " << min_args << " times.\n\n"
-                              << description_ << '\n';
+                            << description_ << '\n';
                     return false;
                 }
             }
@@ -49,11 +67,19 @@ public:
         return true;
     }
 
-    boost::program_options::options_description &description() { return description_; }
-    boost::program_options::positional_options_description &positional() { return positional_; }
+    boost::program_options::options_description &description() {
+        return description_;
+    }
+
+    boost::program_options::positional_options_description &positional() {
+        return positional_;
+    }
 
 protected:
-    void add_positional_argument(const std::string &arg_name, const ArgCount &arg_count) {
+    void add_positional_argument(
+        const std::string &arg_name,
+        const ArgCount &arg_count
+    ) {
         const int max_args = arg_count.max_args.value_or(-1);
         const unsigned int min_args = arg_count.min_args;
 

@@ -12,11 +12,17 @@ using TypeMap = std::map<std::string, ParamType>;
 
 class QueryParam {
 public:
-    explicit QueryParam(std::string text);
+    explicit QueryParam(
+        std::string text
+    );
 
-    explicit QueryParam(std::int64_t number);
+    explicit QueryParam(
+        std::int64_t number
+    );
 
-    static QueryParam unknown(std::string text);
+    static QueryParam unknown(
+        std::string text
+    );
 
     template<typename T>
     [[nodiscard]] T get() const;
@@ -26,7 +32,10 @@ public:
     [[nodiscard]] ParamType type() const;
 
 private:
-    QueryParam(std::string text, ParamType type);
+    QueryParam(
+        std::string text,
+        ParamType type
+    );
 
     ParamType type_;
     std::variant<std::string, std::int64_t> value_;
@@ -42,23 +51,42 @@ class QueryFragment {
 public:
     [[nodiscard]] virtual std::string get_fragment() const = 0;
 
-    [[nodiscard]] virtual std::vector<ColumnQueryParam> get_params() const { return {}; }
+    [[nodiscard]] virtual std::vector<ColumnQueryParam> get_params() const {
+        return {};
+    }
 
     QueryFragment() = default;
+
     virtual ~QueryFragment() = default;
-    QueryFragment(const QueryFragment &) = default;
-    QueryFragment &operator=(const QueryFragment &) = default;
-    QueryFragment(QueryFragment &&) = default;
-    QueryFragment &operator=(QueryFragment &&) = default;
+
+    QueryFragment(
+        const QueryFragment &
+    ) = default;
+
+    QueryFragment &operator=(
+        const QueryFragment &
+    ) = default;
+
+    QueryFragment(
+        QueryFragment &&
+    ) = default;
+
+    QueryFragment &operator=(
+        QueryFragment &&
+    ) = default;
 };
 
 class SelectFragment final : public QueryFragment {
 public:
-    SelectFragment(std::string tablename, std::vector<std::string> columns);
+    SelectFragment(
+        std::string tablename,
+        std::vector<std::string> columns
+    );
 
     [[nodiscard]] std::string get_fragment() const override;
 
     [[nodiscard]] std::string get_tablename() const;
+
     [[nodiscard]] std::vector<std::string> get_columns() const;
 
 private:
@@ -75,9 +103,17 @@ struct Condition {
 class WhereFragment final : public QueryFragment {
 public:
     WhereFragment();
-    void add_condition(std::string column, std::string predicate, QueryParam value);
+
+    void add_condition(
+        std::string column,
+        std::string predicate,
+        QueryParam value
+    );
+
     [[nodiscard]] std::vector<Condition> get_conditions() const;
+
     [[nodiscard]] std::string get_fragment() const override;
+
     [[nodiscard]] std::vector<ColumnQueryParam> get_params() const override;
 
 private:
@@ -86,7 +122,9 @@ private:
 
 class LimitFragment final : public QueryFragment {
 public:
-    explicit LimitFragment(std::uint32_t limit);
+    explicit LimitFragment(
+        std::uint32_t limit
+    );
 
     [[nodiscard]] std::string get_fragment() const override;
 
@@ -98,11 +136,15 @@ private:
 
 class OrderFragment final : public QueryFragment {
 public:
-    OrderFragment(std::vector<std::string> columns, bool reverse);
+    OrderFragment(
+        std::vector<std::string> columns,
+        bool reverse
+    );
 
     [[nodiscard]] std::string get_fragment() const override;
 
     [[nodiscard]] std::vector<std::string> get_columns() const;
+
     [[nodiscard]] bool reversed() const;
 
 private:
@@ -113,7 +155,9 @@ private:
 
 class SqlFragment final : public QueryFragment {
 public:
-    explicit SqlFragment(std::string sql);
+    explicit SqlFragment(
+        std::string sql
+    );
 
     [[nodiscard]] std::string get_fragment() const override;
 

@@ -12,10 +12,18 @@
 #include "queryplan.h"
 #include "writer.h"
 
-static void dump_json(const Json::Value &value, std::ostream &out);
-static std::optional<Json::Value> load_json(std::istream &in);
+static void dump_json(
+    const Json::Value &value,
+    std::ostream &out
+);
 
-Json::Value QueryParamSerDes::encode(const QueryParam &fragment) {
+static std::optional<Json::Value> load_json(
+    std::istream &in
+);
+
+Json::Value QueryParamSerDes::encode(
+    const QueryParam &fragment
+) {
     Json::Value value;
     switch (fragment.type()) {
         case ParamType::NUMERIC:
@@ -34,7 +42,9 @@ Json::Value QueryParamSerDes::encode(const QueryParam &fragment) {
     return value;
 }
 
-QueryParam QueryParamSerDes::decode(const Json::Value &fragment) {
+QueryParam QueryParamSerDes::decode(
+    const Json::Value &fragment
+) {
     const auto type = fragment["type"].asString();
     const auto &value = fragment["value"];
     if (type == "NUMERIC") {
@@ -46,7 +56,9 @@ QueryParam QueryParamSerDes::decode(const Json::Value &fragment) {
     return QueryParam::unknown(value.asString());
 }
 
-Json::Value SelectSerDes::encode(const SelectFragment &fragment) {
+Json::Value SelectSerDes::encode(
+    const SelectFragment &fragment
+) {
     Json::Value value;
     value["tablename"] = fragment.get_tablename();
 
@@ -58,7 +70,9 @@ Json::Value SelectSerDes::encode(const SelectFragment &fragment) {
     return value;
 }
 
-SelectFragment SelectSerDes::decode(const Json::Value &fragment) {
+SelectFragment SelectSerDes::decode(
+    const Json::Value &fragment
+) {
     std::vector<std::string> columns;
     for (const auto &col: fragment["columns"]) {
         columns.push_back(col.asString());
@@ -67,7 +81,9 @@ SelectFragment SelectSerDes::decode(const Json::Value &fragment) {
     return {fragment["tablename"].asString(), columns};
 }
 
-Json::Value WhereSerDes::encode(const WhereFragment &fragment) {
+Json::Value WhereSerDes::encode(
+    const WhereFragment &fragment
+) {
     Json::Value value;
     value["conditions"] = Json::Value();
 
@@ -84,7 +100,9 @@ Json::Value WhereSerDes::encode(const WhereFragment &fragment) {
     return value;
 }
 
-WhereFragment WhereSerDes::decode(const Json::Value &json) {
+WhereFragment WhereSerDes::decode(
+    const Json::Value &json
+) {
     WhereFragment fragment;
     for (const auto &cond: json["conditions"]) {
         const auto column = cond["column"].asString();
@@ -97,14 +115,23 @@ WhereFragment WhereSerDes::decode(const Json::Value &json) {
     return fragment;
 }
 
-Json::Value LimitSerDes::encode(const LimitFragment &fragment) {
+Json::Value LimitSerDes::encode(
+    const LimitFragment &fragment
+) {
     Json::Value value;
     value["limit"] = fragment.get_limit();
     return value;
 }
 
-LimitFragment LimitSerDes::decode(const Json::Value &json) { return LimitFragment{json["limit"].asUInt()}; }
-Json::Value OrderSerDes::encode(const OrderFragment &fragment) {
+LimitFragment LimitSerDes::decode(
+    const Json::Value &json
+) {
+    return LimitFragment{json["limit"].asUInt()};
+}
+
+Json::Value OrderSerDes::encode(
+    const OrderFragment &fragment
+) {
     Json::Value value;
 
     value["reversed"] = fragment.reversed();
@@ -118,7 +145,9 @@ Json::Value OrderSerDes::encode(const OrderFragment &fragment) {
     return value;
 }
 
-OrderFragment OrderSerDes::decode(const Json::Value &json) {
+OrderFragment OrderSerDes::decode(
+    const Json::Value &json
+) {
     std::vector<std::string> columns;
     for (const auto &cond: json["fields"]) {
         columns.push_back(cond.asString());
@@ -127,7 +156,9 @@ OrderFragment OrderSerDes::decode(const Json::Value &json) {
     return {columns, json["reversed"].asBool()};
 }
 
-Json::Value SqlSerDes::encode(const SqlFragment &fragment) {
+Json::Value SqlSerDes::encode(
+    const SqlFragment &fragment
+) {
     Json::Value value;
 
     value["sql"] = fragment.get_fragment();
@@ -135,8 +166,15 @@ Json::Value SqlSerDes::encode(const SqlFragment &fragment) {
     return value;
 }
 
-SqlFragment SqlSerDes::decode(const Json::Value &json) { return SqlFragment{json["sql"].asString()}; }
-Json::Value QueryPlanSerDes::encode(const QueryPlan &query_plan) {
+SqlFragment SqlSerDes::decode(
+    const Json::Value &json
+) {
+    return SqlFragment{json["sql"].asString()};
+}
+
+Json::Value QueryPlanSerDes::encode(
+    const QueryPlan &query_plan
+) {
     Json::Value root;
     root["select"] = Json::Value::null;
     root["where"] = Json::Value::null;
@@ -167,7 +205,9 @@ Json::Value QueryPlanSerDes::encode(const QueryPlan &query_plan) {
     return root;
 }
 
-QueryPlan QueryPlanSerDes::decode(const Json::Value &root) {
+QueryPlan QueryPlanSerDes::decode(
+    const Json::Value &root
+) {
     QueryPlan query_plan{};
 
     if (const auto &select = root["select"]; select != Json::Value::null) {
@@ -194,13 +234,18 @@ QueryPlan QueryPlanSerDes::decode(const Json::Value &root) {
 }
 
 
-void dump_json(const Json::Value &value, std::ostream &out) {
+void dump_json(
+    const Json::Value &value,
+    std::ostream &out
+) {
     const Json::StreamWriterBuilder builder;
     const std::unique_ptr<Json::StreamWriter> json_writer(builder.newStreamWriter());
     json_writer->write(value, &out);
 }
 
-std::optional<Json::Value> load_json(std::istream &in) {
+std::optional<Json::Value> load_json(
+    std::istream &in
+) {
     Json::Value root;
     JSONCPP_STRING errs;
 
@@ -212,7 +257,9 @@ std::optional<Json::Value> load_json(std::istream &in) {
     return root;
 }
 
-std::optional<QueryPlan> load_query_plan(std::istream &in) {
+std::optional<QueryPlan> load_query_plan(
+    std::istream &in
+) {
     const auto json_doc = load_json(in);
     if (!json_doc) {
         std::cerr << "Unable to parse query plan from standard input.\n";
@@ -222,12 +269,17 @@ std::optional<QueryPlan> load_query_plan(std::istream &in) {
     return QueryPlanSerDes::decode(*json_doc);
 }
 
-void dump_query_plan(const QueryPlan &query_plan, std::ostream &out) {
+void dump_query_plan(
+    const QueryPlan &query_plan,
+    std::ostream &out
+) {
     const Json::Value query_plan_encoded = QueryPlanSerDes::encode(query_plan);
     dump_json(query_plan_encoded, out);
 }
 
-ExitStatus dump_or_eval_query_plan(const QueryPlan &query_plan) {
+ExitStatus dump_or_eval_query_plan(
+    const QueryPlan &query_plan
+) {
     if (isatty(fileno(stdout)) == 1) {
         return evaluate_query(query_plan, default_writer);
     }

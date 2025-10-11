@@ -21,13 +21,18 @@ public:
         add_positional_argument("dataset", {.min_args = 1, .max_args = 1});
     }
 
-    [[nodiscard]] std::string get_dataset() const { return dataset_; }
+    [[nodiscard]] std::string get_dataset() const {
+        return dataset_;
+    }
 
 private:
     std::string dataset_;
 };
 
-int main(const int argc, const char *argv[]) {
+int main(
+    const int argc,
+    const char *argv[]
+) {
     CatOptions options;
     if (!options.parse(argc, argv)) {
         return 1;

@@ -22,14 +22,19 @@ public:
         add_positional_argument("field", {.min_args = 1, .max_args = std::nullopt});
     }
 
-    [[nodiscard]] std::vector<std::string> get_fields() const { return fields_; }
+    [[nodiscard]] std::vector<std::string> get_fields() const {
+        return fields_;
+    }
 
 private:
     std::vector<std::string> fields_;
 };
 
 
-int main(const int argc, const char *argv[]) {
+int main(
+    const int argc,
+    const char *argv[]
+) {
     CutOptions options;
     if (!options.parse(argc, argv)) {
         return 1;

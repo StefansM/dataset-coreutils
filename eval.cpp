@@ -25,7 +25,10 @@ public:
         // clang-format on
     }
 
-    bool parse(const int argc, const char *argv[]) override { // NOLINT(*-avoid-c-arrays)
+    bool parse(
+        const int argc,
+        const char *argv[]
+    ) override { // NOLINT(*-avoid-c-arrays)
         if (bool const parent_result = Options::parse(argc, argv); !parent_result) {
             return parent_result;
         }
@@ -48,7 +51,9 @@ public:
         return true;
     }
 
-    [[nodiscard]] std::unique_ptr<Writer> get_writer(const std::shared_ptr<arrow::Schema> &schema) const {
+    [[nodiscard]] std::unique_ptr<Writer> get_writer(
+        const std::shared_ptr<arrow::Schema> &schema
+    ) const {
         if (out_.empty()) {
             return stdout_writer(schema);
         }
@@ -56,7 +61,9 @@ public:
     }
 
 private:
-    [[nodiscard]] std::unique_ptr<Writer> stdout_writer(const std::shared_ptr<arrow::Schema> &schema) const {
+    [[nodiscard]] std::unique_ptr<Writer> stdout_writer(
+        const std::shared_ptr<arrow::Schema> &schema
+    ) const {
         if (write_csv_) {
             return std::make_unique<CsvWriter>(schema);
         }
@@ -70,7 +77,9 @@ private:
         throw std::logic_error("Invariant failure: Neither write_csv or write_parquet set.");
     }
 
-    [[nodiscard]] std::unique_ptr<Writer> file_writer(const std::shared_ptr<arrow::Schema> &schema) const {
+    [[nodiscard]] std::unique_ptr<Writer> file_writer(
+        const std::shared_ptr<arrow::Schema> &schema
+    ) const {
         if (write_csv_) {
             return std::make_unique<CsvWriter>(schema, out_);
         }
@@ -92,7 +101,10 @@ private:
 };
 
 
-int main(const int argc, const char *argv[]) {
+int main(
+    const int argc,
+    const char *argv[]
+) {
     EvalOptions options;
     if (!options.parse(argc, argv)) {
         return 1;
@@ -104,7 +116,9 @@ int main(const int argc, const char *argv[]) {
         return 1;
     }
 
-    const auto writer_factory = [&options](const std::shared_ptr<arrow::Schema> &schema) {
+    const auto writer_factory = [&options](
+        const std::shared_ptr<arrow::Schema> &schema
+    ) {
         return options.get_writer(schema);
     };
 

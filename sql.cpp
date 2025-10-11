@@ -19,20 +19,25 @@ public:
         add_positional_argument("sql", {.min_args = 1, .max_args = 1});
     }
 
-    [[ nodiscard]] std::string get_sql() const { return sql_; }
+    [[ nodiscard]] std::string get_sql() const {
+        return sql_;
+    }
 
 private:
     std::string sql_;
 };
 
 
-int main(const int argc, const char *argv[]) {
+int main(
+    const int argc,
+    const char *argv[]
+) {
     SqlOptions options;
     if (!options.parse(argc, argv)) {
         return 1;
     }
 
-    QueryPlan query_plan {};
+    QueryPlan query_plan{};
     query_plan.sql.emplace(options.get_sql());
 
     return static_cast<int>(dump_or_eval_query_plan(query_plan));

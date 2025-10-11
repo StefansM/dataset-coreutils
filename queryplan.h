@@ -20,7 +20,7 @@ struct QueryPlan {
 
     [[nodiscard]] std::optional<ParameterisedQuery> generate_query() const {
         if (sql) {
-            return ParameterisedQuery {.query = sql->get_fragment(), .params = {}};
+            return ParameterisedQuery{.query = sql->get_fragment(), .params = {}};
         }
 
         if (!select) {
@@ -42,17 +42,21 @@ struct QueryPlan {
 
 private:
     template<typename T>
-    static void accumulate(std::stringstream &query_buf, std::vector<ColumnQueryParam> &parameters,
-                           const std::optional<T> &fragment) {
-
+    static void accumulate(
+        std::stringstream &query_buf,
+        std::vector<ColumnQueryParam> &parameters,
+        const std::optional<T> &fragment
+    ) {
         if (fragment) {
             accumulate(query_buf, parameters, *fragment);
         }
     }
 
-    static void accumulate(std::stringstream &query_buf, std::vector<ColumnQueryParam> &parameters,
-                           const QueryFragment &fragment) {
-
+    static void accumulate(
+        std::stringstream &query_buf,
+        std::vector<ColumnQueryParam> &parameters,
+        const QueryFragment &fragment
+    ) {
         query_buf << fragment.get_fragment();
         auto params = fragment.get_params();
         parameters.insert(parameters.end(), params.begin(), params.end());

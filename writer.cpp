@@ -14,53 +14,80 @@ std::shared_ptr<arrow::io::OutputStream> open_stdout_stream() {
 }
 
 std::shared_ptr<std::ostream> non_owning_stdout() {
-    return {&std::cout, [](std::ostream *) {}};
+    return {
+        &std::cout,
+        [](
+    std::ostream *
+) {}
+    };
 }
 
 
-ArrowDatasetWriter::ArrowDatasetWriter(std::shared_ptr<arrow::Schema> schema, const std::string &path,
-    const std::shared_ptr<arrow::dataset::FileFormat> &file_format) :
+ArrowDatasetWriter::ArrowDatasetWriter(
+    std::shared_ptr<arrow::Schema> schema,
+    const std::string &path,
+    const std::shared_ptr<arrow::dataset::FileFormat> &file_format
+) :
     ArrowDatasetWriter(std::move(schema), file_format, assign_or_raise(arrow::io::FileOutputStream::Open(path))) {}
 
 ArrowDatasetWriter::ArrowDatasetWriter(
-    std::shared_ptr<arrow::Schema> schema, const std::shared_ptr<arrow::dataset::FileFormat> &file_format) :
+    std::shared_ptr<arrow::Schema> schema,
+    const std::shared_ptr<arrow::dataset::FileFormat> &file_format
+) :
     ArrowDatasetWriter(std::move(schema), file_format, open_stdout_stream()) {}
 
-ArrowDatasetWriter::ArrowDatasetWriter(std::shared_ptr<arrow::Schema> schema,
-    const std::shared_ptr<arrow::dataset::FileFormat> &file_format, std::shared_ptr<arrow::io::OutputStream> stream) {
-
+ArrowDatasetWriter::ArrowDatasetWriter(
+    std::shared_ptr<arrow::Schema> schema,
+    const std::shared_ptr<arrow::dataset::FileFormat> &file_format,
+    std::shared_ptr<arrow::io::OutputStream> stream
+) {
     const auto fs = std::make_shared<arrow::fs::LocalFileSystem>();
     const auto file_options = file_format->DefaultWriteOptions();
 
     // The "path" parameter in the FileLocator member doesn't seem to be used for anything.
     writer_ = assign_or_raise(
-        file_format->MakeWriter(std::move(stream), std::move(schema), file_options, {.filesystem = fs, .path = ""}));
+        file_format->MakeWriter(std::move(stream), std::move(schema), file_options, {.filesystem = fs, .path = ""})
+    );
 }
 
 
-void ArrowDatasetWriter::write(const std::shared_ptr<arrow::RecordBatch> batch) {
+void ArrowDatasetWriter::write(
+    const std::shared_ptr<arrow::RecordBatch> batch
+) {
     if (const auto status = writer_->Write(batch); !status.ok()) {
         throw std::runtime_error("Error writing batch: " + status.ToString());
     }
 }
 
 
-ParquetWriter::ParquetWriter(std::shared_ptr<arrow::Schema> schema, const std::string &path) :
+ParquetWriter::ParquetWriter(
+    std::shared_ptr<arrow::Schema> schema,
+    const std::string &path
+) :
     ArrowDatasetWriter(std::move(schema), path, std::make_shared<file_format>()) {}
 
-ColumnarWriter::ColumnarWriter(std::shared_ptr<arrow::Schema> schema) :
-    schema_(std::move(schema)), stream_(non_owning_stdout()), print_options_(print_options()) {
-
+ColumnarWriter::ColumnarWriter(
+    std::shared_ptr<arrow::Schema> schema
+) :
+    schema_(std::move(schema)),
+    stream_(non_owning_stdout()),
+    print_options_(print_options()) {
     init();
 }
 
-ColumnarWriter::ColumnarWriter(std::shared_ptr<arrow::Schema> schema, const std::string &path) :
-    schema_(std::move(schema)), stream_(open_output_stream(path)), print_options_(print_options()) {
-
+ColumnarWriter::ColumnarWriter(
+    std::shared_ptr<arrow::Schema> schema,
+    const std::string &path
+) :
+    schema_(std::move(schema)),
+    stream_(open_output_stream(path)),
+    print_options_(print_options()) {
     init();
 }
 
-void ColumnarWriter::write(std::shared_ptr<arrow::RecordBatch> batch) {
+void ColumnarWriter::write(
+    std::shared_ptr<arrow::RecordBatch> batch
+) {
     const auto cols = batch->columns();
 
     std::int64_t num_rows = 0;
@@ -125,7 +152,9 @@ void ColumnarWriter::init() {
     rendered_rows_.push_back(header);
 }
 
-std::shared_ptr<std::ostream> ColumnarWriter::open_output_stream(const std::string &path) {
+std::shared_ptr<std::ostream> ColumnarWriter::open_output_stream(
+    const std::string &path
+) {
     const auto stream_ptr = std::make_shared<std::ofstream>(path);
     if (!stream_ptr->is_open()) {
         throw std::runtime_error("Unable to open file " + path + " for writing.");
@@ -133,7 +162,8 @@ std::shared_ptr<std::ostream> ColumnarWriter::open_output_stream(const std::stri
     return std::static_pointer_cast<std::ostream>(stream_ptr);
 }
 
-std::unique_ptr<Writer> default_writer(const std::shared_ptr<arrow::Schema> &schema) {
+std::unique_ptr<Writer> default_writer(
+    const std::shared_ptr<arrow::Schema> &schema
+) {
     return std::make_unique<CsvWriter>(schema);
 }
-

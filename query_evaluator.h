@@ -9,7 +9,9 @@ class Writer;
 struct QueryPlan;
 
 struct DuckDbException final : std::runtime_error {
-    explicit DuckDbException(const std::string &msg);
+    explicit DuckDbException(
+        const std::string &msg
+    );
 };
 
 enum class ExitStatus : std::int8_t {
@@ -21,5 +23,7 @@ enum class ExitStatus : std::int8_t {
 
 ExitStatus evaluate_query(
     const QueryPlan &query_plan,
-    const std::function<std::unique_ptr<Writer> (const std::shared_ptr<arrow::Schema> &)> &writer_factory
+    const std::function<std::unique_ptr<Writer> (
+        const std::shared_ptr<arrow::Schema> &
+    )> &writer_factory
 );

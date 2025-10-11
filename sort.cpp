@@ -15,11 +15,17 @@ public:
         namespace po = boost::program_options;
 
         description().add_options()("field,f", po::value(&fields_)->composing(), "Field on which to sort.")(
-                "reverse,r", po::bool_switch(&reversed_), "Descending sort.");
+            "reverse,r",
+            po::bool_switch(&reversed_),
+            "Descending sort."
+        );
         add_positional_argument("field", {.min_args = 1, .max_args = std::nullopt});
     }
 
-    bool parse(const int argc, const char *argv[]) override { // NOLINT(*-avoid-c-arrays)
+    bool parse(
+        const int argc,
+        const char *argv[]
+    ) override { // NOLINT(*-avoid-c-arrays)
         if (const bool parent_result = Options::parse(argc, argv); !parent_result) {
             return parent_result;
         }
@@ -27,8 +33,13 @@ public:
         return true;
     }
 
-    [[nodiscard]] std::vector<std::string> get_fields() const { return fields_; }
-    [[nodiscard]] bool reversed() const { return reversed_; }
+    [[nodiscard]] std::vector<std::string> get_fields() const {
+        return fields_;
+    }
+
+    [[nodiscard]] bool reversed() const {
+        return reversed_;
+    }
 
 private:
     std::vector<std::string> fields_;
@@ -36,7 +47,10 @@ private:
 };
 
 
-int main(const int argc, const char *argv[]) {
+int main(
+    const int argc,
+    const char *argv[]
+) {
     SortOptions options;
     if (!options.parse(argc, argv)) {
         return 1;
