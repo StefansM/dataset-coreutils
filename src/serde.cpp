@@ -279,6 +279,10 @@ QueryPlan QueryPlanSerDes::decode(
         query_plan.sql = SqlSerDes::decode(sql);
     }
 
+    if (const auto &join = root["join"]; join != Json::Value::null) {
+        query_plan.join = JoinSerDes::decode(join);
+    }
+
     return query_plan;
 }
 

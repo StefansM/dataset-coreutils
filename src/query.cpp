@@ -28,6 +28,24 @@ QueryParam::QueryParam(
     type_(type),
     value_(std::move(text)) {}
 
+std::ostream & operator<<(
+    std::ostream &os,
+    const QueryParam &param
+) {
+    switch (param.type()) {
+        case ParamType::NUMERIC:
+            os << param.get<std::int64_t>() << "(INTEGER)";
+            break;
+        case ParamType::TEXT:
+            os << param.get<std::string>() << "(TEXT)";
+            break;
+        case ParamType::UNKNOWN:
+            os << param.get<std::string>() << "(UNKNOWN)";
+            break;
+    }
+    return os;
+}
+
 bool QueryParam::is_null() const {
     return type_ == ParamType::UNKNOWN && std::get<std::string>(value_) == "NULL";
 }

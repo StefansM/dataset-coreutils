@@ -21,7 +21,8 @@ public:
             ("csv,c", po::bool_switch(&write_csv_), "Write results in CSV format.")
             ("parquet,p", po::bool_switch(&write_parquet_), "Write results in Parquet format.")
             ("column,t", po::bool_switch(&write_columnar_), "Write columnated results.")
-            ("out,o", po::value(&out_), "Write to this file instead of stdout.");
+            ("out,o", po::value(&out_), "Write to this file instead of stdout.")
+            ("query,q", po::bool_switch(&print_query_), "Print generated SQL query instead of executing it.");
         // clang-format on
     }
 
@@ -58,6 +59,10 @@ public:
             return stdout_writer(schema);
         }
         return file_writer(schema);
+    }
+
+    [[nodiscard]] bool print_query() const {
+        return print_query_;
     }
 
 private:
@@ -98,6 +103,7 @@ private:
     bool write_parquet_{};
     bool write_columnar_{};
     std::string out_;
+    bool print_query_{false};
 };
 
 
@@ -123,5 +129,19 @@ int main(
     };
 
     AliasGenerator alias_generator;
+    if (options.print_query()) {
+        auto query = query_plan->generate_query(alias_generator);
+        if (!query) {
+            std::cerr << "Error generating query from query plan.\n";
+            return static_cast<int>(ExitStatus::QUERY_GENERATION_ERROR);
+        }
+        const auto [query_str, query_params] = *query;
+        std::cout << query_str << '\n';
+        for (const auto &[column, value] : query_params) {
+            std::cout << "-- Colum " << column << ": " << value << '\n';
+        }
+        return static_cast<int>(ExitStatus::SUCCESS);
+    }
+
     return static_cast<int>(evaluate_query(*query_plan, writer_factory, alias_generator));
 }

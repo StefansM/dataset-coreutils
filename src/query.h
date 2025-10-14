@@ -44,7 +44,7 @@ public:
     template<typename T>
     [[nodiscard]] T get() const;
 
-    bool is_null() const;
+    [[nodiscard]] bool is_null() const;
 
     [[nodiscard]] ParamType type() const;
 
@@ -57,6 +57,8 @@ private:
     ParamType type_;
     std::variant<std::string, std::int64_t> value_;
 };
+
+std::ostream& operator<<(std::ostream& os, const QueryParam& param);
 
 struct ColumnQueryParam {
     std::string column;
