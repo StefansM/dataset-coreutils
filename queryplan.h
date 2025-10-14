@@ -18,9 +18,11 @@ struct QueryPlan {
     std::optional<LimitFragment> limit;
     std::optional<OrderFragment> order;
     std::optional<SqlFragment> sql;
-    std::uint32_t next_alias_id {0};
+    std::uint32_t next_alias_id{0};
 
-    [[nodiscard]] std::optional<ParameterisedQuery> generate_query(AliasGenerator &alias_generator) const {
+    [[nodiscard]] std::optional<ParameterisedQuery> generate_query(
+        AliasGenerator &alias_generator
+    ) const {
         if (sql) {
             return ParameterisedQuery{.query = sql->get_fragment(alias_generator), .params = {}};
         }

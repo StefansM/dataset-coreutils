@@ -195,6 +195,7 @@ public:
     ) const override;
 
     [[nodiscard]] std::string get_sql() const;
+
 private:
     std::string sql_;
 };
@@ -228,5 +229,4 @@ private:
     std::string table_, how_;
     std::vector<JoinCondition> conditions_;
     std::optional<std::string> alias_;
-
 };

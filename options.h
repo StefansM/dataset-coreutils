@@ -99,5 +99,5 @@ private:
     boost::program_options::positional_options_description positional_;
 
     std::map<std::string, unsigned int> min_args_;
-    std::optional<boost::program_options::options_description> help_description_ {};
+    std::optional<boost::program_options::options_description> help_description_{};
 };
