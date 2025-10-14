@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <map>
+#include <optional>
 #include <string>
 #include <variant>
 #include <vector>
@@ -80,7 +81,8 @@ class SelectFragment final : public QueryFragment {
 public:
     SelectFragment(
         std::string tablename,
-        std::vector<std::string> columns
+        std::vector<std::string> columns,
+        std::optional<std::string> alias
     );
 
     [[nodiscard]] std::string get_fragment() const override;
@@ -89,9 +91,12 @@ public:
 
     [[nodiscard]] std::vector<std::string> get_columns() const;
 
+    [[nodiscard]] std::optional<std::string> get_alias() const;
+
 private:
     std::string tablename_;
     std::vector<std::string> columns_;
+    std::optional<std::string> alias_;
 };
 
 struct Condition {
@@ -163,4 +168,34 @@ public:
 
 private:
     std::string sql_;
+};
+
+struct JoinCondition {
+    std::string left, predicate, right;
+};
+
+class JoinFragment final : public QueryFragment {
+public:
+    explicit JoinFragment(
+        std::string table,
+        std::string how,
+        std::vector<JoinCondition> conditions,
+        std::optional<std::string> alias
+    );
+
+    [[nodiscard]] std::string get_fragment() const override;
+
+    [[nodiscard]] std::string get_how() const;
+
+    [[nodiscard]] std::string get_table() const;
+
+    [[nodiscard]] std::vector<JoinCondition> get_conditions() const;
+
+    [[nodiscard]] std::optional<std::string> get_alias() const;
+
+private:
+    std::string table_, how_;
+    std::vector<JoinCondition> conditions_;
+    std::optional<std::string> alias_;
+
 };

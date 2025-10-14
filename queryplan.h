@@ -13,6 +13,7 @@ struct ParameterisedQuery {
 
 struct QueryPlan {
     std::optional<SelectFragment> select;
+    std::optional<JoinFragment> join;
     std::optional<WhereFragment> where;
     std::optional<LimitFragment> limit;
     std::optional<OrderFragment> order;
@@ -32,6 +33,7 @@ struct QueryPlan {
         std::vector<ColumnQueryParam> parameters;
 
         accumulate(query_buf, parameters, select);
+        accumulate(query_buf, parameters, join);
         accumulate(query_buf, parameters, where);
         accumulate(query_buf, parameters, order);
         accumulate(query_buf, parameters, limit);

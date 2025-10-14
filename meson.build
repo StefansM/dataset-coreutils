@@ -58,6 +58,14 @@ head_exe = executable(
   dependencies : common_deps,
 )
 
+join_exe = executable(
+    'djoin',
+    'join.cpp',
+    common_files,
+    install : true,
+    dependencies : common_deps,
+)
+
 sort_exe = executable(
   'dsort',
   'sort.cpp',

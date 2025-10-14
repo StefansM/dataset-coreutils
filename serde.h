@@ -9,6 +9,7 @@
 struct QueryPlan;
 class QueryParam;
 class SelectFragment;
+class JoinFragment;
 class WhereFragment;
 class LimitFragment;
 class OrderFragment;
@@ -76,6 +77,17 @@ public:
     );
 
     static SqlFragment decode(
+        const Json::Value &json
+    );
+};
+
+class JoinSerDes final {
+public:
+    static Json::Value encode(
+        const JoinFragment &fragment
+    );
+
+    static JoinFragment decode(
         const Json::Value &json
     );
 };

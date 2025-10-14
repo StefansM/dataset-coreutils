@@ -46,7 +46,7 @@ int main(
         return 1;
     }
 
-    query_plan->select.emplace(query_plan->select->get_tablename(), options.get_fields());
+    query_plan->select.emplace(query_plan->select->get_tablename(), options.get_fields(), query_plan->select->get_alias());
 
     return static_cast<int>(dump_or_eval_query_plan(*query_plan));
 }

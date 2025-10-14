@@ -1,5 +1,6 @@
 #include "query.h"
 
+#include <optional>
 #include <sstream>
 
 // QueryParam
@@ -49,10 +50,12 @@ template std::int64_t QueryParam::get<std::int64_t>() const;
 // SelectFragment
 SelectFragment::SelectFragment(
     std::string tablename,
-    std::vector<std::string> columns
+    std::vector<std::string> columns,
+    std::optional<std::string> alias
 ) :
     tablename_(std::move(tablename)),
-    columns_(std::move(columns)) {}
+    columns_(std::move(columns)),
+    alias_(std::move(alias)) {}
 
 std::string SelectFragment::get_fragment() const {
     std::stringstream stream;
@@ -67,6 +70,9 @@ std::string SelectFragment::get_fragment() const {
     }
 
     stream << "  FROM " << tablename_;
+    if (alias_) {
+        stream << " AS " << *alias_;
+    }
     return stream.str();
 }
 
@@ -76,6 +82,10 @@ std::string SelectFragment::get_tablename() const {
 
 std::vector<std::string> SelectFragment::get_columns() const {
     return columns_;
+}
+
+std::optional<std::string> SelectFragment::get_alias() const {
+    return alias_;
 }
 
 // WhereFragment
@@ -183,4 +193,50 @@ SqlFragment::SqlFragment(
 
 std::string SqlFragment::get_fragment() const {
     return sql_;
+}
+
+JoinFragment::JoinFragment(
+    std::string table,
+    std::string how,
+    std::vector<JoinCondition> conditions,
+    std::optional<std::string> alias
+) :
+    table_(std::move(table)),
+    how_(std::move(how)),
+    conditions_(std::move(conditions)),
+    alias_(std::move(alias)) {}
+
+std::string JoinFragment::get_fragment() const {
+    std::stringstream stream;
+    stream << "\n " << how_ << " JOIN " << table_;
+    if (alias_) {
+        stream << " AS " << *alias_;
+    }
+    stream << " ON ";
+
+    int i = 0;
+    for (const auto &[left, predicate, right]: conditions_) {
+        if (i++ != 0) {
+            stream << "\n     AND ";
+        }
+        stream << left << " " << predicate << " " << right;
+    }
+
+    return stream.str();
+}
+
+std::string JoinFragment::get_how() const {
+    return how_;
+}
+
+std::string JoinFragment::get_table() const {
+    return table_;
+}
+
+std::vector<JoinCondition> JoinFragment::get_conditions() const {
+    return conditions_;
+}
+
+std::optional<std::string> JoinFragment::get_alias() const {
+    return alias_;
 }

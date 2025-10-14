@@ -1,10 +1,10 @@
 #include <string>
 
 #include <boost/program_options.hpp>
+#include <boost/optional.hpp>
 
 #include "options.h"
 #include "query.h"
-#include "query_evaluator.h"
 #include "queryplan.h"
 #include "serde.h"
 
@@ -16,7 +16,9 @@ public:
 
         // clang-format off
         description().add_options()
-        ("dataset,d", po::value(&dataset_), "Dataset location");
+        ("dataset,d", po::value(&dataset_), "Dataset location")
+        ("alias,a", po::value(&alias_), "Dataset location")
+        ;
         // clang-format on
         add_positional_argument("dataset", {.min_args = 1, .max_args = 1});
     }
@@ -25,8 +27,13 @@ public:
         return dataset_;
     }
 
+    [[nodiscard ]] std::optional<std::string> get_alias() const {
+        return alias_ ? std::make_optional(*alias_) : std::nullopt;
+    }
+
 private:
     std::string dataset_;
+    boost::optional<std::string> alias_;
 };
 
 int main(
@@ -39,7 +46,7 @@ int main(
     }
 
     QueryPlan query_plan;
-    query_plan.select = SelectFragment(options.get_dataset(), {"*"});
+    query_plan.select = SelectFragment(options.get_dataset(), {"*"}, options.get_alias());
 
     return static_cast<int>(dump_or_eval_query_plan(query_plan));
 }

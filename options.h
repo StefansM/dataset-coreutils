@@ -48,7 +48,8 @@ public:
             po::notify(var_map);
 
             if (var_map.contains("help")) {
-                std::cerr << description_ << '\n';
+                const auto &description = help_description_.value_or(description_);
+                std::cerr << description << '\n';
                 return false;
             }
 
@@ -87,9 +88,16 @@ protected:
         min_args_[arg_name] = min_args;
     }
 
+    void set_help_description(
+        boost::program_options::options_description description
+    ) {
+        help_description_.emplace(description);
+    }
+
 private:
     boost::program_options::options_description description_;
     boost::program_options::positional_options_description positional_;
 
     std::map<std::string, unsigned int> min_args_;
+    std::optional<boost::program_options::options_description> help_description_ {};
 };

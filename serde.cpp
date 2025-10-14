@@ -61,6 +61,7 @@ Json::Value SelectSerDes::encode(
 ) {
     Json::Value value;
     value["tablename"] = fragment.get_tablename();
+    value["alias"] = fragment.get_alias() ? *fragment.get_alias() : Json::Value::null;
 
     int i = 0;
     for (const auto &col: fragment.get_columns()) {
@@ -77,8 +78,10 @@ SelectFragment SelectSerDes::decode(
     for (const auto &col: fragment["columns"]) {
         columns.push_back(col.asString());
     }
+    const auto &alias_value = fragment["alias"];
+    const auto alias_opt = alias_value != Json::Value::null ? std::make_optional(alias_value.asString()) : std::nullopt;
 
-    return {fragment["tablename"].asString(), columns};
+    return {fragment["tablename"].asString(), columns, alias_opt};
 }
 
 Json::Value WhereSerDes::encode(
@@ -172,6 +175,47 @@ SqlFragment SqlSerDes::decode(
     return SqlFragment{json["sql"].asString()};
 }
 
+Json::Value JoinSerDes::encode(
+    const JoinFragment &fragment
+) {
+    Json::Value value;
+    value["table"] = fragment.get_table();
+    value["alias"] = fragment.get_alias() ? *fragment.get_alias() : Json::Value::null;
+    value["how"] = fragment.get_how();
+    value["conditions"] = Json::Value();
+
+    int i = 0;
+    for (const auto &f: fragment.get_conditions()) {
+        Json::Value json_cond;
+        json_cond["left"] = f.left;
+        json_cond["predicate"] = f.predicate;
+        json_cond["right"] = f.right;
+        value["conditions"][i++] = json_cond;
+    }
+    return value;
+}
+
+JoinFragment JoinSerDes::decode(
+    const Json::Value &json
+) {
+    const std::string how = json["how"].asString();
+    const std::string table = json["table"].asString();
+    const auto &alias_value = json["alias"];
+    const auto alias_opt = alias_value != Json::Value::null ? std::make_optional(alias_value.asString()) : std::nullopt;
+
+    std::vector<JoinCondition> conditions;
+    for (const auto &cond: json["conditions"]) {
+        conditions.push_back(
+            JoinCondition{
+                .left = cond["left"].asString(),
+                .predicate = cond["predicate"].asString(),
+                .right = cond["right"].asString()
+            }
+        );
+    }
+    return JoinFragment{table, how, conditions, alias_opt};
+}
+
 Json::Value QueryPlanSerDes::encode(
     const QueryPlan &query_plan
 ) {
@@ -181,6 +225,7 @@ Json::Value QueryPlanSerDes::encode(
     root["limit"] = Json::Value::null;
     root["order"] = Json::Value::null;
     root["sql"] = Json::Value::null;
+    root["join"] = Json::Value::null;
 
     if (query_plan.select) {
         root["select"] = SelectSerDes::encode(*query_plan.select);
@@ -200,6 +245,10 @@ Json::Value QueryPlanSerDes::encode(
 
     if (query_plan.sql) {
         root["sql"] = SqlSerDes::encode(*query_plan.sql);
+    }
+
+    if (query_plan.join) {
+        root["join"] = JoinSerDes::encode(*query_plan.join);
     }
 
     return root;
