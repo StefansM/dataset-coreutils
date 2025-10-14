@@ -1,0 +1,13 @@
+Checks: >
+  clang-diagnostic-*,
+  clang-analyzer-*,
+  modernize-*,
+  readability-*,
+  performance-*,
+  bugprone-*,
+  cppcoreguidelines-*,
+  -modernize-use-trailing-return-type,
+  -readability-identifier-length,
+  misc-const-correctness
+WarningsAsErrors: ''
+FormatStyle: none
