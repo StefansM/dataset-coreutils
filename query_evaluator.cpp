@@ -139,7 +139,8 @@ static std::unordered_map<std::string, std::string> get_schema(
     base_query.order = std::nullopt;
     base_query.where = std::nullopt;
 
-    const auto query = base_query.generate_query();
+    AliasGenerator alias_generator;
+    const auto query = base_query.generate_query(alias_generator);
     if (!query) {
         throw std::runtime_error("Error generating query from query plan.\n");
     }
@@ -170,9 +171,10 @@ ExitStatus evaluate_query(
     const QueryPlan &query_plan,
     const std::function<std::unique_ptr<Writer> (
         const std::shared_ptr<arrow::Schema> &
-    )> &writer_factory
+    )> &writer_factory,
+    AliasGenerator &alias_generator
 ) {
-    auto query = query_plan.generate_query();
+    auto query = query_plan.generate_query(alias_generator);
     if (!query) {
         std::cerr << "Error generating query from query plan.\n";
         return ExitStatus::QUERY_GENERATION_ERROR;

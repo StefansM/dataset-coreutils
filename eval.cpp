@@ -122,5 +122,6 @@ int main(
         return options.get_writer(schema);
     };
 
-    return static_cast<int>(evaluate_query(*query_plan, writer_factory));
+    AliasGenerator alias_generator;
+    return static_cast<int>(evaluate_query(*query_plan, writer_factory, alias_generator));
 }

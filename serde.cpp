@@ -164,7 +164,7 @@ Json::Value SqlSerDes::encode(
 ) {
     Json::Value value;
 
-    value["sql"] = fragment.get_fragment();
+    value["sql"] = fragment.get_sql();
 
     return value;
 }
@@ -330,7 +330,8 @@ ExitStatus dump_or_eval_query_plan(
     const QueryPlan &query_plan
 ) {
     if (isatty(fileno(stdout)) == 1) {
-        return evaluate_query(query_plan, default_writer);
+        AliasGenerator alias_generator;
+        return evaluate_query(query_plan, default_writer, alias_generator);
     }
     dump_query_plan(query_plan, std::cout);
     return ExitStatus::SUCCESS;

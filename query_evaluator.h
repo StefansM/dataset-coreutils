@@ -7,6 +7,7 @@
 
 class Writer;
 struct QueryPlan;
+class AliasGenerator;
 
 struct DuckDbException final : std::runtime_error {
     explicit DuckDbException(
@@ -25,5 +26,6 @@ ExitStatus evaluate_query(
     const QueryPlan &query_plan,
     const std::function<std::unique_ptr<Writer> (
         const std::shared_ptr<arrow::Schema> &
-    )> &writer_factory
+    )> &writer_factory,
+    AliasGenerator &alias_generator
 );

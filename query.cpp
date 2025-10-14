@@ -57,7 +57,9 @@ SelectFragment::SelectFragment(
     columns_(std::move(columns)),
     alias_(std::move(alias)) {}
 
-std::string SelectFragment::get_fragment() const {
+std::string SelectFragment::get_fragment(
+    AliasGenerator &alias_generator
+) const {
     std::stringstream stream;
     stream << "SELECT ";
 
@@ -70,9 +72,10 @@ std::string SelectFragment::get_fragment() const {
     }
 
     stream << "  FROM " << tablename_;
-    if (alias_) {
-        stream << " AS " << *alias_;
-    }
+
+    const auto alias = alias_.value_or(alias_generator.next());
+    stream << " AS " << alias;
+
     return stream.str();
 }
 
@@ -103,7 +106,9 @@ std::vector<Condition> WhereFragment::get_conditions() const {
     return conditions_;
 }
 
-std::string WhereFragment::get_fragment() const {
+std::string WhereFragment::get_fragment(
+    AliasGenerator &
+) const {
     std::stringstream stream;
     int i = 0;
     for (const auto &c: conditions_) {
@@ -141,7 +146,9 @@ LimitFragment::LimitFragment(
 ) :
     limit_(limit) {}
 
-std::string LimitFragment::get_fragment() const {
+std::string LimitFragment::get_fragment(
+    AliasGenerator &
+) const {
     std::stringstream stream;
     // FIXME: When using a query parameter for limit across multiple Parquet
     // files, I get an incorrect result compared to doing this.
@@ -161,7 +168,9 @@ OrderFragment::OrderFragment(
     columns_(std::move(columns)),
     reverse_(reverse) {}
 
-std::string OrderFragment::get_fragment() const {
+std::string OrderFragment::get_fragment(
+    AliasGenerator &
+) const {
     const char *direction = reverse_ ? "DESC" : "ASC";
 
     std::stringstream stream;
@@ -191,7 +200,13 @@ SqlFragment::SqlFragment(
 ) :
     sql_(std::move(sql)) {}
 
-std::string SqlFragment::get_fragment() const {
+std::string SqlFragment::get_fragment(
+    AliasGenerator &
+) const {
+    return sql_;
+}
+
+std::string SqlFragment::get_sql() const {
     return sql_;
 }
 
@@ -206,12 +221,15 @@ JoinFragment::JoinFragment(
     conditions_(std::move(conditions)),
     alias_(std::move(alias)) {}
 
-std::string JoinFragment::get_fragment() const {
+std::string JoinFragment::get_fragment(
+    AliasGenerator &alias_generator
+) const {
     std::stringstream stream;
     stream << "\n " << how_ << " JOIN " << table_;
-    if (alias_) {
-        stream << " AS " << *alias_;
-    }
+
+    const auto alias = alias_.value_or(alias_generator.next());
+    stream << " AS " << alias;
+
     stream << " ON ";
 
     int i = 0;

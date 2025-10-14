@@ -11,6 +11,22 @@ enum class ParamType : std::uint8_t { NUMERIC, TEXT, UNKNOWN };
 
 using TypeMap = std::map<std::string, ParamType>;
 
+class AliasGenerator {
+public:
+    explicit AliasGenerator(
+        std::string prefix = "t"
+    ) :
+        prefix_(std::move(prefix)) {}
+
+    std::string next() {
+        return prefix_ + std::to_string(counter_++);
+    }
+
+private:
+    std::string prefix_;
+    std::uint32_t counter_ = 1;
+};
+
 class QueryParam {
 public:
     explicit QueryParam(
@@ -50,7 +66,9 @@ struct ColumnQueryParam {
 
 class QueryFragment {
 public:
-    [[nodiscard]] virtual std::string get_fragment() const = 0;
+    [[nodiscard]] virtual std::string get_fragment(
+        AliasGenerator &alias_generator
+    ) const = 0;
 
     [[nodiscard]] virtual std::vector<ColumnQueryParam> get_params() const {
         return {};
@@ -85,7 +103,9 @@ public:
         std::optional<std::string> alias
     );
 
-    [[nodiscard]] std::string get_fragment() const override;
+    [[nodiscard]] std::string get_fragment(
+        AliasGenerator &alias_generator
+    ) const override;
 
     [[nodiscard]] std::string get_tablename() const;
 
@@ -117,7 +137,9 @@ public:
 
     [[nodiscard]] std::vector<Condition> get_conditions() const;
 
-    [[nodiscard]] std::string get_fragment() const override;
+    [[nodiscard]] std::string get_fragment(
+        AliasGenerator &alias_generator
+    ) const override;
 
     [[nodiscard]] std::vector<ColumnQueryParam> get_params() const override;
 
@@ -131,7 +153,9 @@ public:
         std::uint32_t limit
     );
 
-    [[nodiscard]] std::string get_fragment() const override;
+    [[nodiscard]] std::string get_fragment(
+        AliasGenerator &alias_generator
+    ) const override;
 
     [[nodiscard]] std::uint32_t get_limit() const;
 
@@ -146,7 +170,9 @@ public:
         bool reverse
     );
 
-    [[nodiscard]] std::string get_fragment() const override;
+    [[nodiscard]] std::string get_fragment(
+        AliasGenerator &alias_generator
+    ) const override;
 
     [[nodiscard]] std::vector<std::string> get_columns() const;
 
@@ -164,8 +190,11 @@ public:
         std::string sql
     );
 
-    [[nodiscard]] std::string get_fragment() const override;
+    [[nodiscard]] std::string get_fragment(
+        AliasGenerator &alias_generator
+    ) const override;
 
+    [[nodiscard]] std::string get_sql() const;
 private:
     std::string sql_;
 };
@@ -183,7 +212,9 @@ public:
         std::optional<std::string> alias
     );
 
-    [[nodiscard]] std::string get_fragment() const override;
+    [[nodiscard]] std::string get_fragment(
+        AliasGenerator &alias_generator
+    ) const override;
 
     [[nodiscard]] std::string get_how() const;
 
