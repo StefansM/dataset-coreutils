@@ -124,7 +124,7 @@ static void bind_inferred_value(
                 return;
             } catch (const std::exception &e) {
                 throw std::runtime_error(
-                    "Could not convert paramter "s + string_value + " to integer for column '" + param.column + "': " +
+                    "Could not convert parameter "s + string_value + " to integer for column '" + param.column + "': " +
                     e.what()
                 );
             }
@@ -140,8 +140,8 @@ static void bind_inferred_value(
                 return;
             } catch (const std::exception &e) {
                 throw std::runtime_error(
-                    "Could not convert paramter "s + string_value + " to float for column '" + param.column + "': " + e.
-                    what()
+                    "Could not convert parameter "s + string_value + " to float for column '" + param.column + "': " +
+                    e.what()
                 );
             }
         }
