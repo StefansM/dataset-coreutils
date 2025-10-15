@@ -203,7 +203,8 @@ static std::shared_ptr<arrow::Schema> duckdb_schema_to_arrow(
     duckdb_prepared_statement statement
 ) {
     duckdb_arrow_options raw_arrow_options = nullptr;
-    if (duckdb_connection_get_arrow_options(connection, &raw_arrow_options) == DuckDBError || !raw_arrow_options) {
+    duckdb_connection_get_arrow_options(connection, &raw_arrow_options);
+    if (!raw_arrow_options) {
         throw DuckDbException("Could not fetch DuckDB Arrow options.");
     }
     UniqueArrowOptions arrow_options(raw_arrow_options);
@@ -286,13 +287,11 @@ static std::unordered_map<std::string, std::string> get_schema(
     std::unordered_map<std::string, std::string> column_types;
 
     duckdb_result result{};
+    ResultGuard result_guard{&result};
     if (duckdb_query(connection, describe_query.c_str(), &result) == DuckDBError) {
         const auto *error_message = duckdb_result_error(&result);
-        duckdb_destroy_result(&result);
         throw_duckdb_error("Error executing DESCRIBE query.", error_message);
     }
-
-    ResultGuard result_guard{&result};
 
     const auto row_count = duckdb_row_count(&result);
     for (idx_t row = 0; row < row_count; ++row) {
@@ -344,25 +343,21 @@ ExitStatus evaluate_query(
         const auto param_types = get_schema(query_plan, connection.get());
 
         duckdb_prepared_statement raw_statement = nullptr;
-        if (duckdb_prepare(connection.get(), query_str.c_str(), &raw_statement) == DuckDBError) {
-            const auto *error_message = raw_statement ? duckdb_prepare_error(raw_statement) : nullptr;
-            if (raw_statement) {
-                duckdb_destroy_prepare(&raw_statement);
-            }
+        const auto prepare_state = duckdb_prepare(connection.get(), query_str.c_str(), &raw_statement);
+        UniquePreparedStatement prepared_statement(raw_statement);
+        if (prepare_state == DuckDBError) {
+            const auto *error_message = prepared_statement ? duckdb_prepare_error(prepared_statement.get()) : nullptr;
             throw_duckdb_error("Failed to prepare statement.", error_message);
         }
-        UniquePreparedStatement prepared_statement(raw_statement);
 
         bind_params_to_statement(prepared_statement.get(), query_params, param_types);
 
         duckdb_result result{};
+        ResultGuard result_guard{&result};
         if (duckdb_execute_prepared(prepared_statement.get(), &result) == DuckDBError) {
             const auto *error_message = duckdb_result_error(&result);
-            duckdb_destroy_result(&result);
             throw_duckdb_error("Error executing prepared statement.", error_message);
         }
-
-        ResultGuard result_guard{&result};
 
         duckdb_arrow_options raw_arrow_options = duckdb_result_get_arrow_options(&result);
         if (!raw_arrow_options) {
