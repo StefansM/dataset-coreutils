@@ -77,6 +77,17 @@ struct ArrowOptionsDestroyer {
     }
 };
 
+struct DuckdbResult {
+    ~DuckdbResult() {
+        duckdb_destroy_result(&result_);
+    }
+
+    [[nodiscard]] duckdb_result *get() {
+        return &result_;
+    }
+    duckdb_result result_{};
+};
+
 using UniqueDatabase = std::unique_ptr<std::remove_pointer_t<duckdb_database>, DatabaseCloser>;
 using UniqueConnection = std::unique_ptr<std::remove_pointer_t<duckdb_connection>, ConnectionCloser>;
 using UniquePreparedStatement = std::unique_ptr<std::remove_pointer_t<duckdb_prepared_statement>,
@@ -84,20 +95,6 @@ using UniquePreparedStatement = std::unique_ptr<std::remove_pointer_t<duckdb_pre
 using UniqueDataChunk = std::unique_ptr<std::remove_pointer_t<duckdb_data_chunk>, DataChunkDestroyer>;
 using UniqueArrowOptions = std::unique_ptr<std::remove_pointer_t<duckdb_arrow_options>, ArrowOptionsDestroyer>;
 
-struct ResultGuard {
-    duckdb_result *result;
-
-    ResultGuard(const ResultGuard &) = delete;
-    ResultGuard(ResultGuard &&) = delete;
-    ResultGuard &operator=(const ResultGuard &) = delete;
-    ResultGuard &operator=(ResultGuard &&) = delete;
-
-    ~ResultGuard() {
-        if (result != nullptr) {
-            duckdb_destroy_result(result);
-        }
-    }
-};
 
 [[noreturn]] void throw_duckdb_error(
     const std::string &context,
@@ -234,7 +231,7 @@ static void bind_params_to_statement(
 
 static auto duckdb_schema_to_arrow(
     const duckdb_connection connection,
-    duckdb_prepared_statement statement
+    const duckdb_prepared_statement statement
 ) -> std::shared_ptr<arrow::Schema> {
     duckdb_arrow_options raw_arrow_options = nullptr;
     duckdb_connection_get_arrow_options(connection, &raw_arrow_options);
@@ -266,6 +263,9 @@ static auto duckdb_schema_to_arrow(
     for (auto &logical_type: logical_types) {
         duckdb_destroy_logical_type(&logical_type);
     }
+    for (const auto &name: column_names) {
+        duckdb_free(const_cast<char *>(name));  // NOLINT(*-const-cast)
+    }
 
     if (duckdb_error_data_has_error(error_data)) {
         const auto *message = duckdb_error_data_message(error_data);
@@ -280,7 +280,7 @@ static auto duckdb_schema_to_arrow(
 
 auto chunk_to_record_batch(
     const duckdb_arrow_options arrow_options,
-    duckdb_data_chunk chunk,
+    const duckdb_data_chunk chunk,
     std::shared_ptr<arrow::Schema> arrow_schema
 ) -> std::shared_ptr<arrow::RecordBatch> {
     ArrowArray arrow_array{};
@@ -296,15 +296,18 @@ auto chunk_to_record_batch(
 }
 
 static std::unordered_map<std::string, std::string> get_schema(
-    const QueryPlan &query_plan,
+    const OverallQueryPlan &query_plan,
     duckdb_connection connection
 ) {
     using namespace std::string_literals;
 
-    QueryPlan base_query = query_plan;
-    base_query.limit = std::nullopt;
-    base_query.order = std::nullopt;
-    base_query.where = std::nullopt;
+    OverallQueryPlan base_query = query_plan;
+    if (!base_query.get_plans().empty()) {
+        auto &final_plan = base_query.get_plans().back();
+        final_plan.limit = std::nullopt;
+        final_plan.order = std::nullopt;
+        final_plan.where = std::nullopt;
+    }
 
     AliasGenerator alias_generator;
     const auto query = base_query.generate_query(alias_generator);
@@ -320,21 +323,20 @@ static std::unordered_map<std::string, std::string> get_schema(
 
     std::unordered_map<std::string, std::string> column_types;
 
-    duckdb_result result{};
-    const ResultGuard result_guard{&result};
-    if (duckdb_query(connection, describe_query.c_str(), &result) == DuckDBError) {
-        const auto *error_message = duckdb_result_error(&result);
+    DuckdbResult result;
+    if (duckdb_query(connection, describe_query.c_str(), result.get()) == DuckDBError) {
+        const auto *error_message = duckdb_result_error(result.get());
         throw_duckdb_error("Error executing DESCRIBE query.", error_message);
     }
 
-    const auto row_count = duckdb_row_count(&result);
+    const auto row_count = duckdb_row_count(result.get());
     for (idx_t row = 0; row < row_count; ++row) {
         const std::unique_ptr<char, decltype(&duckdb_free)> column_name(
-            duckdb_value_varchar(&result, 0, row),
+            duckdb_value_varchar(result.get(), 0, row),
             duckdb_free
         );
         const std::unique_ptr<char, decltype(&duckdb_free)> column_type(
-            duckdb_value_varchar(&result, 1, row),
+            duckdb_value_varchar(result.get(), 1, row),
             duckdb_free
         );
 
@@ -348,7 +350,7 @@ static std::unordered_map<std::string, std::string> get_schema(
 }
 
 ExitStatus evaluate_query(
-    const QueryPlan &query_plan,
+    const OverallQueryPlan &query_plan,
     const std::function<std::unique_ptr<Writer> (
         const std::shared_ptr<arrow::Schema> &
     )> &writer_factory,
@@ -386,14 +388,13 @@ ExitStatus evaluate_query(
 
         bind_params_to_statement(prepared_statement.get(), query_params, param_types);
 
-        duckdb_result result{};
-        const ResultGuard result_guard{&result};
-        if (duckdb_execute_prepared(prepared_statement.get(), &result) == DuckDBError) {
-            const auto *error_message = duckdb_result_error(&result);
+        DuckdbResult result;
+        if (duckdb_execute_prepared(prepared_statement.get(), result.get()) == DuckDBError) {
+            const auto *error_message = duckdb_result_error(result.get());
             throw_duckdb_error("Error executing prepared statement.", error_message);
         }
 
-        duckdb_arrow_options raw_arrow_options = duckdb_result_get_arrow_options(&result);
+        duckdb_arrow_options raw_arrow_options = duckdb_result_get_arrow_options(result.get());
         if (raw_arrow_options == nullptr) {
             throw DuckDbException("DuckDB did not provide Arrow options for the result.");
         }
@@ -402,9 +403,9 @@ ExitStatus evaluate_query(
         const auto arrow_schema = duckdb_schema_to_arrow(connection.get(), prepared_statement.get());
         const auto writer = writer_factory(arrow_schema);
 
-        const auto chunk_count = duckdb_result_chunk_count(result);
+        const auto chunk_count = duckdb_result_chunk_count(*result.get());
         for (idx_t chunk_index = 0; chunk_index < chunk_count; ++chunk_index) {
-            duckdb_data_chunk raw_chunk = duckdb_result_get_chunk(result, chunk_index);
+            duckdb_data_chunk raw_chunk = duckdb_result_get_chunk(*result.get(), chunk_index);
             const UniqueDataChunk chunk(raw_chunk);
             if (!chunk || duckdb_data_chunk_get_size(chunk.get()) == 0) {
                 continue;

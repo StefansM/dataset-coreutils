@@ -105,16 +105,21 @@ int main(
         return 1;
     }
 
-    auto query_plan = load_query_plan(std::cin);
-    if (!query_plan) {
+    auto overall_query_plan = load_query_plan(std::cin);
+    if (!overall_query_plan) {
         std::cerr << "Unable to parse query plan from standard input.\n";
         return 1;
     }
-
-    if (!query_plan->where) {
-        query_plan->where.emplace();
+    if (overall_query_plan->get_plans().empty()) {
+        std::cerr << "Empty query plan.\n";
+        return 1;
     }
-    query_plan->where->add_condition(options.get_field(), options.get_predicate(), options.get_value());
 
-    return static_cast<int>(dump_or_eval_query_plan(*query_plan));
+    auto &query_plan = overall_query_plan->get_plans().back();
+    if (!query_plan.where) {
+        query_plan.where.emplace();
+    }
+    query_plan.where->add_condition(options.get_field(), options.get_predicate(), options.get_value());
+
+    return static_cast<int>(dump_or_eval_query_plan(*overall_query_plan));
 }

@@ -60,7 +60,9 @@ Json::Value SelectSerDes::encode(
     const SelectFragment &fragment
 ) {
     Json::Value value;
-    value["tablename"] = fragment.get_tablename();
+    for (const auto &tn: fragment.get_tablenames()) {
+        value["tablename"].append(tn);
+    }
     value["alias"] = fragment.get_alias() ? *fragment.get_alias() : Json::Value::null;
 
     int i = 0;
@@ -74,6 +76,11 @@ Json::Value SelectSerDes::encode(
 SelectFragment SelectSerDes::decode(
     const Json::Value &fragment
 ) {
+    std::vector<std::string> tablenames;
+    for (const auto &tn: fragment["tablename"]) {
+        tablenames.push_back(tn.asString());
+    }
+
     std::vector<std::string> columns;
     for (const auto &col: fragment["columns"]) {
         columns.push_back(col.asString());
@@ -81,7 +88,7 @@ SelectFragment SelectSerDes::decode(
     const auto &alias_value = fragment["alias"];
     const auto alias_opt = alias_value != Json::Value::null ? std::make_optional(alias_value.asString()) : std::nullopt;
 
-    return {fragment["tablename"].asString(), columns, alias_opt};
+    return {tablenames, columns, alias_opt};
 }
 
 Json::Value WhereSerDes::encode(
@@ -286,6 +293,29 @@ QueryPlan QueryPlanSerDes::decode(
     return query_plan;
 }
 
+Json::Value OverallQueryPlanSerDes::encode(
+    const OverallQueryPlan &overall_query_plan
+) {
+    Json::Value root;
+    root["plans"] = Json::Value();
+    int i = 0;
+    for (const auto &plan: overall_query_plan.get_plans()) {
+        root["plans"][i++] = QueryPlanSerDes::encode(plan);
+    }
+    return root;
+}
+
+OverallQueryPlan OverallQueryPlanSerDes::decode(
+    const Json::Value &root
+) {
+    const auto &plans_json = root["plans"];
+    OverallQueryPlan overall_query_plan;
+    for (const auto &plan_json: plans_json) {
+        overall_query_plan.add_plan(QueryPlanSerDes::decode(plan_json));
+    }
+    return overall_query_plan;
+}
+
 
 void dump_json(
     const Json::Value &value,
@@ -310,7 +340,7 @@ std::optional<Json::Value> load_json(
     return root;
 }
 
-std::optional<QueryPlan> load_query_plan(
+std::optional<OverallQueryPlan> load_query_plan(
     std::istream &in
 ) {
     const auto json_doc = load_json(in);
@@ -319,19 +349,19 @@ std::optional<QueryPlan> load_query_plan(
         return std::nullopt;
     }
 
-    return QueryPlanSerDes::decode(*json_doc);
+    return OverallQueryPlanSerDes::decode(*json_doc);
 }
 
 void dump_query_plan(
-    const QueryPlan &query_plan,
+    const OverallQueryPlan &query_plan,
     std::ostream &out
 ) {
-    const Json::Value query_plan_encoded = QueryPlanSerDes::encode(query_plan);
+    const Json::Value query_plan_encoded = OverallQueryPlanSerDes::encode(query_plan);
     dump_json(query_plan_encoded, out);
 }
 
 ExitStatus dump_or_eval_query_plan(
-    const QueryPlan &query_plan
+    const OverallQueryPlan &query_plan
 ) {
     if (isatty(fileno(stdout)) == 1) {
         AliasGenerator alias_generator;

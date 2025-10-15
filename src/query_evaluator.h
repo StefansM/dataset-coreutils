@@ -6,7 +6,7 @@
 #include <arrow/api.h>
 
 class Writer;
-struct QueryPlan;
+class OverallQueryPlan;
 class AliasGenerator;
 
 struct DuckDbException final : std::runtime_error {
@@ -23,7 +23,7 @@ enum class ExitStatus : std::int8_t {
 };
 
 ExitStatus evaluate_query(
-    const QueryPlan &query_plan,
+    const OverallQueryPlan &query_plan,
     const std::function<std::unique_ptr<Writer> (
         const std::shared_ptr<arrow::Schema> &
     )> &writer_factory,

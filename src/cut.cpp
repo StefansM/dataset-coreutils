@@ -40,21 +40,27 @@ int main(
         return 1;
     }
 
-    auto query_plan = load_query_plan(std::cin);
-    if (!query_plan) {
+    auto overall_query_plan = load_query_plan(std::cin);
+    if (!overall_query_plan) {
         std::cerr << "Unable to parse query plan from standard input.\n";
         return 1;
     }
-    if (!query_plan->select) {
-        std::cerr << "No 'SELECT' clause present in query plan.\n";
+    if (overall_query_plan->get_plans().empty()) {
+        std::cerr << "Empty query plan.\n";
         return 1;
     }
 
-    query_plan->select.emplace(
-        query_plan->select->get_tablename(),
+    auto &select = overall_query_plan->get_plans().back();
+    if (!select.select.has_value()) {
+        std::cerr << "No SELECT fragment in final query plan.\n";
+        return 1;
+    }
+
+    select.select.emplace(
+        select.select->get_tablenames(),
         options.get_fields(),
-        query_plan->select->get_alias()
+        select.select->get_alias()
     );
 
-    return static_cast<int>(dump_or_eval_query_plan(*query_plan));
+    return static_cast<int>(dump_or_eval_query_plan(*overall_query_plan));
 }
