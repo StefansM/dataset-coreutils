@@ -38,8 +38,8 @@ public:
 
     virtual bool parse(
         const int argc,
-        const char *argv[]
-    ) { // NOLINT(*-avoid-c-arrays)
+        const char *argv[] // NOLINT(*-avoid-c-arrays)
+    ) {
         namespace po = boost::program_options;
 
         try {

@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <string>
 
 #include <boost/program_options.hpp>
@@ -61,7 +62,7 @@ private:
     void parse_option_switches(
         std::vector<JoinCondition> &conditions
     ) const {
-        const auto num_args = std::min(left_.size(), std::min(right_.size(), predicate_.size()));
+        const auto num_args = std::min({left_.size(), right_.size(), predicate_.size()});
         if (left_.size() != num_args || right_.size() != num_args || predicate_.size() != num_args) {
             std::cerr << "Number of left, right and predicate arguments must be the same. Got " << left_.size() << ", "
                     << right_.size() << " and " << predicate_.size() << ". Using the first " << num_args << "\n";
@@ -84,8 +85,8 @@ private:
             conditions.push_back(
                 JoinCondition{
                     .left = positional_args_[i * 3],
-                    .predicate = positional_args_[i * 3 + 1],
-                    .right = positional_args_[i * 3 + 2]
+                    .predicate = positional_args_[(i * 3) + 1],
+                    .right = positional_args_[(i * 3) + 2]
                 }
             );
         }

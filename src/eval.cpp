@@ -28,8 +28,8 @@ public:
 
     bool parse(
         const int argc,
-        const char *argv[]
-    ) override { // NOLINT(*-avoid-c-arrays)
+        const char *argv[] // NOLINT(*-avoid-c-arrays)
+    ) override {
         if (bool const parent_result = Options::parse(argc, argv); !parent_result) {
             return parent_result;
         }
@@ -137,7 +137,7 @@ int main(
         }
         const auto [query_str, query_params] = *query;
         std::cout << query_str << '\n';
-        for (const auto &[column, value] : query_params) {
+        for (const auto &[column, value]: query_params) {
             std::cout << "-- Colum " << column << ": " << value << '\n';
         }
         return static_cast<int>(ExitStatus::SUCCESS);

@@ -91,7 +91,7 @@ void ColumnarWriter::write(
     const auto cols = batch->columns();
 
     std::int64_t num_rows = 0;
-    if (cols.size() == 0) {
+    if (cols.empty()) {
         throw std::runtime_error("No columns were provided");
     }
     num_rows = cols[0]->length();
@@ -101,7 +101,7 @@ void ColumnarWriter::write(
 
     for (std::int64_t i = 0; i < num_rows; ++i) {
         for (std::size_t j = 0; j < cols.size(); ++j) {
-            const auto column = cols[j];
+            const auto& column = cols[j];
             const auto slice = column->Slice(i, 1);
             if (const auto status = arrow::PrettyPrint(*slice, print_options_, &stream); !status.ok()) {
                 throw std::runtime_error("Error printing column: " + status.ToString());
@@ -124,8 +124,11 @@ void ColumnarWriter::write(
 void ColumnarWriter::flush() {
     for (const auto &row: rendered_rows_) {
         for (std::size_t i = 0; i < row.size(); ++i) {
-            const auto width = max_col_width_[i];
-            const auto delimiter = i == 0 ? "" : " ";
+            const auto width = std::in_range<int>(max_col_width_[i])
+                    ? static_cast<int>(max_col_width_[i])
+                    : std::numeric_limits<int>::max();
+
+            const auto *delimiter = i == 0 ? "" : " ";
             *stream_ << delimiter << std::left << std::setw(width);
             *stream_ << row[i];
         }

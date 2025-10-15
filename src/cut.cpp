@@ -45,6 +45,10 @@ int main(
         std::cerr << "Unable to parse query plan from standard input.\n";
         return 1;
     }
+    if (!query_plan->select) {
+        std::cerr << "No 'SELECT' clause present in query plan.\n";
+        return 1;
+    }
 
     query_plan->select.emplace(
         query_plan->select->get_tablename(),
