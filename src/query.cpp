@@ -1,7 +1,38 @@
 #include "query.h"
 
 #include <optional>
+#include <ranges>
 #include <sstream>
+
+static std::string join(const std::vector<std::string> &elements, const std::string &separator) {
+    std::stringstream out;
+    bool first = true;
+    for (const auto &e: elements) {
+        if (!first) {
+            out << separator;
+        }
+        out << e;
+        first = false;
+    }
+    return out.str();
+}
+
+static std::string indent(const std::string &text, const std::string &prefix) {
+    std::stringstream in(text);
+    std::string line;
+    std::stringstream out;
+
+    bool first = true;
+    while (std::getline(in, line)) {
+        if (!first) {
+            out << "\n";
+        }
+        out << prefix << line;
+        first = false;
+    }
+
+    return out.str();
+}
 
 // QueryParam
 QueryParam::QueryParam(
@@ -67,38 +98,57 @@ template std::int64_t QueryParam::get<std::int64_t>() const;
 
 // SelectFragment
 SelectFragment::SelectFragment(
-    std::string tablename,
+    std::vector<std::string> tablenames,
     std::vector<std::string> columns,
     std::optional<std::string> alias
 ) :
-    tablename_(std::move(tablename)),
+    tablenames_(std::move(tablenames)),
     columns_(std::move(columns)),
     alias_(std::move(alias)) {}
 
 std::string SelectFragment::get_fragment(
     AliasGenerator &alias_generator
 ) const {
-    std::stringstream stream;
-    stream << "SELECT ";
-
-    int i = 0;
-    for (const auto &col: columns_) {
-        if (i++ != 0) {
-            stream << "     , ";
-        }
-        stream << col << "\n";
-    }
-
-    stream << "  FROM " << tablename_;
-
+    using namespace std::string_literals;
     const auto alias = alias_.value_or(alias_generator.next());
-    stream << " AS " << alias;
+    const auto cols_clause = indent(join(columns_, ",\n "), "    ");
+
+    std::stringstream stream;
+
+    if (tablenames_.size() == 1) {
+        stream << fragment_for_single_table(tablenames_.front(), alias_);
+    } else {
+        stream << "SELECT " << cols_clause << '\n' << "  FROM (\n";
+        // clang-format off
+        const auto subqueries = tablenames_
+            | std::ranges::views::transform([&](const auto &t) {
+                return fragment_for_single_table(t, std::nullopt);
+            })
+            | std::ranges::views::join_with("\nUNION ALL\n"s)
+            | std::ranges::to<std::string>();
+        // clang-format on
+        stream << indent(subqueries, "    ") << "\n)" << " AS " << alias;
+    }
 
     return stream.str();
 }
 
-std::string SelectFragment::get_tablename() const {
-    return tablename_;
+std::string SelectFragment::fragment_for_single_table(
+    const std::string &tablename,
+    const std::optional<std::string> &alias
+) const {
+    std::stringstream stream;
+    stream << "SELECT ";
+    stream << indent(join(columns_, ",\n "), "    ") << '\n';
+    stream << "  FROM " << tablename;
+    if (alias) {
+        stream << " AS " << *alias;
+    }
+    return stream.str();
+}
+
+std::vector<std::string> SelectFragment::get_tablenames() const {
+    return tablenames_;
 }
 
 std::vector<std::string> SelectFragment::get_columns() const {

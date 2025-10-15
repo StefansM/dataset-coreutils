@@ -60,7 +60,9 @@ Json::Value SelectSerDes::encode(
     const SelectFragment &fragment
 ) {
     Json::Value value;
-    value["tablename"] = fragment.get_tablename();
+    for (const auto &tn: fragment.get_tablenames()) {
+        value["tablename"].append(tn);
+    }
     value["alias"] = fragment.get_alias() ? *fragment.get_alias() : Json::Value::null;
 
     int i = 0;
@@ -74,6 +76,11 @@ Json::Value SelectSerDes::encode(
 SelectFragment SelectSerDes::decode(
     const Json::Value &fragment
 ) {
+    std::vector<std::string> tablenames;
+    for (const auto &tn: fragment["tablename"]) {
+        tablenames.push_back(tn.asString());
+    }
+
     std::vector<std::string> columns;
     for (const auto &col: fragment["columns"]) {
         columns.push_back(col.asString());
@@ -81,7 +88,7 @@ SelectFragment SelectSerDes::decode(
     const auto &alias_value = fragment["alias"];
     const auto alias_opt = alias_value != Json::Value::null ? std::make_optional(alias_value.asString()) : std::nullopt;
 
-    return {fragment["tablename"].asString(), columns, alias_opt};
+    return {tablenames, columns, alias_opt};
 }
 
 Json::Value WhereSerDes::encode(

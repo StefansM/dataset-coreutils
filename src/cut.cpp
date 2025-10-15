@@ -52,7 +52,7 @@ int main(
 
     auto &query_plan = overall_query_plan->get_plans().back();
     query_plan.select.emplace(
-        query_plan.select->get_tablename(),
+        query_plan.select->get_tablenames(),
         options.get_fields(),
         query_plan.select->get_alias()
     );

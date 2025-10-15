@@ -100,7 +100,7 @@ public:
 class SelectFragment final : public QueryFragment {
 public:
     SelectFragment(
-        std::string tablename,
+        std::vector<std::string> tablenames,
         std::vector<std::string> columns,
         std::optional<std::string> alias
     );
@@ -109,16 +109,21 @@ public:
         AliasGenerator &alias_generator
     ) const override;
 
-    [[nodiscard]] std::string get_tablename() const;
+    [[nodiscard]] std::vector<std::string> get_tablenames() const;
 
     [[nodiscard]] std::vector<std::string> get_columns() const;
 
     [[nodiscard]] std::optional<std::string> get_alias() const;
 
 private:
-    std::string tablename_;
+    std::vector<std::string> tablenames_;
     std::vector<std::string> columns_;
     std::optional<std::string> alias_;
+
+    [[nodiscard]] std::string fragment_for_single_table(
+        const std::string &tablename,
+        const std::optional<std::string> &alias
+    ) const;
 };
 
 struct Condition {

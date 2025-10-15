@@ -16,15 +16,15 @@ public:
 
         // clang-format off
         description().add_options()
-        ("dataset,d", po::value(&dataset_), "Dataset location.")
+        ("dataset,d", po::value(&datasets_)->composing(), "Dataset location.")
         ("alias,a", po::value(&alias_), "Alias used for this dataset.")
         ;
         // clang-format on
-        add_positional_argument("dataset", {.min_args = 1, .max_args = 1});
+        add_positional_argument("dataset", {.min_args = 1, .max_args = std::nullopt});
     }
 
-    [[nodiscard]] std::string get_dataset() const {
-        return dataset_;
+    [[nodiscard]] std::vector<std::string> get_datasets() const {
+        return datasets_;
     }
 
     [[nodiscard ]] std::optional<std::string> get_alias() const {
@@ -32,7 +32,7 @@ public:
     }
 
 private:
-    std::string dataset_;
+    std::vector<std::string> datasets_;
     boost::optional<std::string> alias_;
 };
 
@@ -51,7 +51,7 @@ int main(
     }
 
     QueryPlan query_plan;
-    query_plan.select = SelectFragment(options.get_dataset(), {"*"}, options.get_alias());
+    query_plan.select = SelectFragment(options.get_datasets(), {"*"}, options.get_alias());
 
     overall_plan.add_plan(query_plan);
 
