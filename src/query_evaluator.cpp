@@ -3,11 +3,14 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <memory>
+#include <type_traits>
+#include <stdexcept>
 
 #include <arrow/c/abi.h>
 #include <arrow/c/bridge.h>
 #include <arrow/record_batch.h>
-#include <duckdb.hpp>
+#include <duckdb.h>
 
 #include "arrow_result.h"
 #include "options.h"
@@ -23,17 +26,84 @@ DuckDbException::DuckDbException(
 ) :
     std::runtime_error(msg) {}
 
-template<typename T>
-T dd_check(
-    T result
-) {
-    if (result->HasError()) {
-        throw DuckDbException("Error doing DuckDb action. " + result->GetErrorObject().Message());
+namespace {
+
+struct DatabaseCloser {
+    void operator()(duckdb_database db) const {
+        if (db) {
+            duckdb_close(&db);
+        }
     }
-    return result;
+};
+
+struct ConnectionCloser {
+    void operator()(duckdb_connection connection) const {
+        if (connection) {
+            duckdb_disconnect(&connection);
+        }
+    }
+};
+
+struct PreparedStatementDestroyer {
+    void operator()(duckdb_prepared_statement statement) const {
+        if (statement) {
+            duckdb_destroy_prepare(&statement);
+        }
+    }
+};
+
+struct DataChunkDestroyer {
+    void operator()(duckdb_data_chunk chunk) const {
+        if (chunk) {
+            duckdb_destroy_data_chunk(&chunk);
+        }
+    }
+};
+
+struct ArrowOptionsDestroyer {
+    void operator()(duckdb_arrow_options options) const {
+        if (options) {
+            duckdb_destroy_arrow_options(&options);
+        }
+    }
+};
+
+using UniqueDatabase = std::unique_ptr<std::remove_pointer_t<duckdb_database>, DatabaseCloser>;
+using UniqueConnection = std::unique_ptr<std::remove_pointer_t<duckdb_connection>, ConnectionCloser>;
+using UniquePreparedStatement = std::unique_ptr<std::remove_pointer_t<duckdb_prepared_statement>, PreparedStatementDestroyer>;
+using UniqueDataChunk = std::unique_ptr<std::remove_pointer_t<duckdb_data_chunk>, DataChunkDestroyer>;
+using UniqueArrowOptions = std::unique_ptr<std::remove_pointer_t<duckdb_arrow_options>, ArrowOptionsDestroyer>;
+
+struct ResultGuard {
+    duckdb_result *result;
+    ~ResultGuard() {
+        if (result) {
+            duckdb_destroy_result(result);
+        }
+    }
+};
+
+[[noreturn]] void throw_duckdb_error(const std::string &context, const char *error_message) {
+    if (error_message) {
+        throw DuckDbException(context + " " + error_message);
+    }
+    throw DuckDbException(context);
 }
 
-static duckdb::Value infer_value_from_schema(
+template<typename Binder>
+duckdb_state bind_checked(Binder &&binder, duckdb_prepared_statement statement, const std::string &context) {
+    const auto state = binder();
+    if (state == DuckDBError) {
+        throw_duckdb_error(context, duckdb_prepare_error(statement));
+    }
+    return state;
+}
+
+} // namespace
+
+static void bind_inferred_value(
+    duckdb_prepared_statement statement,
+    idx_t param_index,
     const ColumnQueryParam &param,
     const std::unordered_map<std::string, std::string> &param_types
 ) {
@@ -45,7 +115,13 @@ static duckdb::Value infer_value_from_schema(
 
         if (col_type == "BIGINT" || col_type == "INTEGER" || col_type == "SMALLINT") {
             try {
-                return duckdb::Value::CreateValue<std::int64_t>(std::stoll(string_value));
+                const auto integer_value = std::stoll(string_value);
+                bind_checked(
+                    [&] { return duckdb_bind_int64(statement, param_index, integer_value); },
+                    statement,
+                    "Could not bind inferred integer parameter."s
+                );
+                return;
             } catch (const std::exception &e) {
                 throw std::runtime_error(
                     "Could not convert paramter "s + string_value + " to integer for column '" + param.column + "': " +
@@ -55,7 +131,13 @@ static duckdb::Value infer_value_from_schema(
         }
         if (col_type == "DOUBLE" || col_type == "FLOAT") {
             try {
-                return duckdb::Value::CreateValue<double>(std::stod(string_value));
+                const auto double_value = std::stod(string_value);
+                bind_checked(
+                    [&] { return duckdb_bind_double(statement, param_index, double_value); },
+                    statement,
+                    "Could not bind inferred double parameter."s
+                );
+                return;
             } catch (const std::exception &e) {
                 throw std::runtime_error(
                     "Could not convert paramter "s + string_value + " to float for column '" + param.column + "': " + e.
@@ -64,73 +146,123 @@ static duckdb::Value infer_value_from_schema(
             }
         }
         if (col_type == "VARCHAR" || col_type == "TEXT") {
-            return duckdb::Value::CreateValue<std::string>(param.value.get<std::string>());
+            const auto &string_param_value = param.value.get<std::string>();
+            bind_checked(
+                [&] { return duckdb_bind_varchar(statement, param_index, string_param_value.c_str()); },
+                statement,
+                "Could not bind inferred text parameter."s
+            );
+            return;
         }
         throw DuckDbException("Unable to infer type for param for column '" + param.column + "'.");
     }
     throw std::runtime_error("Could not find column '" + param.column + "' in schema.");
 }
 
-static duckdb::vector<duckdb::Value> convert_params_to_duckdb(
+static void bind_params_to_statement(
+    duckdb_prepared_statement statement,
     const std::vector<ColumnQueryParam> &query_params,
     const std::unordered_map<std::string, std::string> &param_types
 ) {
-    duckdb::vector<duckdb::Value> duckdb_params;
+    using std::string_literals::operator ""s;
 
-    int i = 0;
+    idx_t param_index = 1;
     for (const auto &param: query_params) {
-        duckdb::Value value;
         switch (param.value.type()) {
             case ParamType::NUMERIC:
-                value = duckdb::Value::CreateValue<std::int64_t>(param.value.get<std::int64_t>());
+                bind_checked(
+                    [&] { return duckdb_bind_int64(statement, param_index, param.value.get<std::int64_t>()); },
+                    statement,
+                    "Could not bind numeric parameter."s
+                );
                 break;
 
-            case ParamType::TEXT:
-                value = duckdb::Value::CreateValue<std::string>(param.value.get<std::string>());
+            case ParamType::TEXT: {
+                const auto &string_value = param.value.get<std::string>();
+                bind_checked(
+                    [&] { return duckdb_bind_varchar(statement, param_index, string_value.c_str()); },
+                    statement,
+                    "Could not bind text parameter."s
+                );
                 break;
+            }
 
             case ParamType::UNKNOWN:
-                value = infer_value_from_schema(param, param_types);
+                bind_inferred_value(statement, param_index, param, param_types);
                 break;
 
             default:
-                throw DuckDbException("Unable to convert param " + std::to_string(i) + " to DuckDb type.");
+                throw DuckDbException("Unable to convert param " + std::to_string(param_index - 1) + " to DuckDb type.");
         }
-        duckdb_params.push_back(value);
-        ++i;
+        ++param_index;
     }
-
-    return duckdb_params;
 }
 
 static std::shared_ptr<arrow::Schema> duckdb_schema_to_arrow(
-    const std::unique_ptr<duckdb::QueryResult> &result
+    duckdb_connection connection,
+    duckdb_prepared_statement statement
 ) {
-    ArrowSchema duck_arrow_schema{};
-    duckdb::ArrowConverter::ToArrowSchema(&duck_arrow_schema, result->types, result->names, result->client_properties);
+    duckdb_arrow_options raw_arrow_options = nullptr;
+    if (duckdb_connection_get_arrow_options(connection, &raw_arrow_options) == DuckDBError || !raw_arrow_options) {
+        throw DuckDbException("Could not fetch DuckDB Arrow options.");
+    }
+    UniqueArrowOptions arrow_options(raw_arrow_options);
 
-    return assign_or_raise(arrow::ImportSchema(&duck_arrow_schema));
+    const auto column_count = duckdb_prepared_statement_column_count(statement);
+    std::vector<duckdb_logical_type> logical_types;
+    logical_types.reserve(column_count);
+    std::vector<const char *> column_names;
+    column_names.reserve(column_count);
+
+    for (idx_t idx = 0; idx < column_count; ++idx) {
+        logical_types.push_back(duckdb_prepared_statement_column_logical_type(statement, idx));
+        column_names.push_back(duckdb_prepared_statement_column_name(statement, idx));
+    }
+
+    ArrowSchema arrow_schema{};
+    duckdb_error_data error_data = duckdb_to_arrow_schema(
+        arrow_options.get(),
+        logical_types.data(),
+        column_names.data(),
+        column_count,
+        &arrow_schema
+    );
+
+    for (auto &logical_type: logical_types) {
+        duckdb_destroy_logical_type(&logical_type);
+    }
+
+    if (duckdb_error_data_has_error(error_data)) {
+        const auto *message = duckdb_error_data_message(error_data);
+        duckdb_destroy_error_data(&error_data);
+        throw_duckdb_error("Could not convert schema to Arrow.", message);
+    }
+    duckdb_destroy_error_data(&error_data);
+
+    return assign_or_raise(arrow::ImportSchema(&arrow_schema));
 }
 
 
 std::shared_ptr<arrow::RecordBatch> chunk_to_record_batch(
-    const std::unique_ptr<duckdb::DataChunk> &data_chunk,
-    std::shared_ptr<arrow::Schema> arrow_schema,
-    const std::unique_ptr<duckdb::QueryResult> &result
+    duckdb_arrow_options arrow_options,
+    duckdb_data_chunk chunk,
+    std::shared_ptr<arrow::Schema> arrow_schema
 ) {
     ArrowArray arrow_array{};
-
-    // TODO: No need to recreate this multiple times
-    const std::unordered_map<duckdb::idx_t, const duckdb::shared_ptr<duckdb::ArrowTypeExtensionData>>
-            extension_type_cast;
-    duckdb::ArrowConverter::ToArrowArray(*data_chunk, &arrow_array, result->client_properties, extension_type_cast);
+    duckdb_error_data error_data = duckdb_data_chunk_to_arrow(arrow_options, chunk, &arrow_array);
+    if (duckdb_error_data_has_error(error_data)) {
+        const auto *message = duckdb_error_data_message(error_data);
+        duckdb_destroy_error_data(&error_data);
+        throw_duckdb_error("Could not convert chunk to Arrow.", message);
+    }
+    duckdb_destroy_error_data(&error_data);
 
     return assign_or_raise(arrow::ImportRecordBatch(&arrow_array, std::move(arrow_schema)));
 }
 
 static std::unordered_map<std::string, std::string> get_schema(
     const QueryPlan &query_plan,
-    duckdb::Connection &conn
+    duckdb_connection connection
 ) {
     using namespace std::string_literals;
 
@@ -153,15 +285,30 @@ static std::unordered_map<std::string, std::string> get_schema(
 
     std::unordered_map<std::string, std::string> column_types;
 
-    const auto prepared_statement = dd_check(conn.Prepare(describe_query));
-    const auto result = dd_check(prepared_statement->Execute());
+    duckdb_result result{};
+    if (duckdb_query(connection, describe_query.c_str(), &result) == DuckDBError) {
+        const auto *error_message = duckdb_result_error(&result);
+        duckdb_destroy_result(&result);
+        throw_duckdb_error("Error executing DESCRIBE query.", error_message);
+    }
 
-    for (auto data_chunk = result->Fetch(); data_chunk && data_chunk->size() > 0; data_chunk = result->Fetch()) {
-        for (duckdb::idx_t row = 0; row < data_chunk->size(); ++row) {
-            const auto column_name = data_chunk->GetValue(0, row).ToString();
-            const auto column_type = data_chunk->GetValue(1, row).ToString();
-            column_types[column_name] = column_type;
+    ResultGuard result_guard{&result};
+
+    const auto row_count = duckdb_row_count(&result);
+    for (idx_t row = 0; row < row_count; ++row) {
+        std::unique_ptr<char, decltype(&duckdb_free)> column_name(
+            duckdb_value_varchar(&result, 0, row),
+            duckdb_free
+        );
+        std::unique_ptr<char, decltype(&duckdb_free)> column_type(
+            duckdb_value_varchar(&result, 1, row),
+            duckdb_free
+        );
+
+        if (!column_name || !column_type) {
+            throw DuckDbException("Failed to read schema information from DuckDB.");
         }
+        column_types[column_name.get()] = column_type.get();
     }
 
     return column_types;
@@ -180,26 +327,61 @@ ExitStatus evaluate_query(
         return ExitStatus::QUERY_GENERATION_ERROR;
     }
 
-    duckdb::DuckDB db(nullptr);
-    duckdb::Connection con(db);
+    duckdb_database raw_db = nullptr;
+    if (duckdb_open(nullptr, &raw_db) == DuckDBError) {
+        throw DuckDbException("Failed to open DuckDB in-memory database.");
+    }
+    UniqueDatabase database(raw_db);
+
+    duckdb_connection raw_connection = nullptr;
+    if (duckdb_connect(database.get(), &raw_connection) == DuckDBError) {
+        throw DuckDbException("Failed to connect to DuckDB database.");
+    }
+    UniqueConnection connection(raw_connection);
     auto [query_str, query_params] = *query;
 
     try {
-        const auto param_types = get_schema(query_plan, con);
+        const auto param_types = get_schema(query_plan, connection.get());
 
-        const auto prepared_statement = dd_check(con.Prepare(query_str));
-        auto duckdb_params = convert_params_to_duckdb(query_params, param_types);
-        const auto result = dd_check(prepared_statement->Execute(duckdb_params, true));
-        const auto arrow_schema = duckdb_schema_to_arrow(result);
+        duckdb_prepared_statement raw_statement = nullptr;
+        if (duckdb_prepare(connection.get(), query_str.c_str(), &raw_statement) == DuckDBError) {
+            const auto *error_message = raw_statement ? duckdb_prepare_error(raw_statement) : nullptr;
+            if (raw_statement) {
+                duckdb_destroy_prepare(&raw_statement);
+            }
+            throw_duckdb_error("Failed to prepare statement.", error_message);
+        }
+        UniquePreparedStatement prepared_statement(raw_statement);
+
+        bind_params_to_statement(prepared_statement.get(), query_params, param_types);
+
+        duckdb_result result{};
+        if (duckdb_execute_prepared(prepared_statement.get(), &result) == DuckDBError) {
+            const auto *error_message = duckdb_result_error(&result);
+            duckdb_destroy_result(&result);
+            throw_duckdb_error("Error executing prepared statement.", error_message);
+        }
+
+        ResultGuard result_guard{&result};
+
+        duckdb_arrow_options raw_arrow_options = duckdb_result_get_arrow_options(&result);
+        if (!raw_arrow_options) {
+            throw DuckDbException("DuckDB did not provide Arrow options for the result.");
+        }
+        UniqueArrowOptions arrow_options(raw_arrow_options);
+
+        const auto arrow_schema = duckdb_schema_to_arrow(connection.get(), prepared_statement.get());
         const auto writer = writer_factory(arrow_schema);
 
-        while (true) {
-            auto data_chunk = result->Fetch();
-            if (!data_chunk || data_chunk->size() == 0) {
-                break;
+        const auto chunk_count = duckdb_result_chunk_count(result);
+        for (idx_t chunk_index = 0; chunk_index < chunk_count; ++chunk_index) {
+            duckdb_data_chunk raw_chunk = duckdb_result_get_chunk(result, chunk_index);
+            UniqueDataChunk chunk(raw_chunk);
+            if (!chunk || duckdb_data_chunk_get_size(chunk.get()) == 0) {
+                continue;
             }
 
-            const auto batch_result = chunk_to_record_batch(data_chunk, arrow_schema, result);
+            const auto batch_result = chunk_to_record_batch(arrow_options.get(), chunk.get(), arrow_schema);
             writer->write(batch_result);
         }
         writer->flush();
