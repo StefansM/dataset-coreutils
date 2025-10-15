@@ -16,8 +16,8 @@ public:
 
         // clang-format off
         description().add_options()
-        ("dataset,d", po::value(&dataset_), "Dataset location")
-        ("alias,a", po::value(&alias_), "Dataset location")
+        ("dataset,d", po::value(&dataset_), "Dataset location.")
+        ("alias,a", po::value(&alias_), "Alias used for this dataset.")
         ;
         // clang-format on
         add_positional_argument("dataset", {.min_args = 1, .max_args = 1});
