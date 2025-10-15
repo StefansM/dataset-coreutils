@@ -129,15 +129,18 @@ std::shared_ptr<arrow::RecordBatch> chunk_to_record_batch(
 }
 
 static std::unordered_map<std::string, std::string> get_schema(
-    const QueryPlan &query_plan,
+    const OverallQueryPlan &query_plan,
     duckdb::Connection &conn
 ) {
     using namespace std::string_literals;
 
-    QueryPlan base_query = query_plan;
-    base_query.limit = std::nullopt;
-    base_query.order = std::nullopt;
-    base_query.where = std::nullopt;
+    OverallQueryPlan base_query = query_plan;
+    if (base_query.get_plans().size() > 0) {
+        auto &final_plan = base_query.get_plans().back();
+        final_plan.limit = std::nullopt;
+        final_plan.order = std::nullopt;
+        final_plan.where = std::nullopt;
+    }
 
     AliasGenerator alias_generator;
     const auto query = base_query.generate_query(alias_generator);
@@ -168,7 +171,7 @@ static std::unordered_map<std::string, std::string> get_schema(
 }
 
 ExitStatus evaluate_query(
-    const QueryPlan &query_plan,
+    const OverallQueryPlan &query_plan,
     const std::function<std::unique_ptr<Writer> (
         const std::shared_ptr<arrow::Schema> &
     )> &writer_factory,

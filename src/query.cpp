@@ -240,13 +240,14 @@ JoinFragment::JoinFragment(
     alias_(std::move(alias)) {}
 
 std::string JoinFragment::get_fragment(
-    AliasGenerator &alias_generator
+    AliasGenerator &
 ) const {
     std::stringstream stream;
     stream << "\n " << how_ << " JOIN " << table_;
 
-    const auto alias = alias_.value_or(alias_generator.next());
-    stream << " AS " << alias;
+    if (alias_) {
+        stream << " AS " << *alias_;
+    }
 
     stream << " ON ";
 

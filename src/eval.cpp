@@ -116,8 +116,8 @@ int main(
         return 1;
     }
 
-    const auto query_plan = load_query_plan(std::cin);
-    if (!query_plan) {
+    const auto overall_query_plan = load_query_plan(std::cin);
+    if (!overall_query_plan) {
         std::cerr << "Unable to parse query plan from standard input.\n";
         return 1;
     }
@@ -130,7 +130,7 @@ int main(
 
     AliasGenerator alias_generator;
     if (options.print_query()) {
-        auto query = query_plan->generate_query(alias_generator);
+        auto query = overall_query_plan->generate_query(alias_generator);
         if (!query) {
             std::cerr << "Error generating query from query plan.\n";
             return static_cast<int>(ExitStatus::QUERY_GENERATION_ERROR);
@@ -143,5 +143,5 @@ int main(
         return static_cast<int>(ExitStatus::SUCCESS);
     }
 
-    return static_cast<int>(evaluate_query(*query_plan, writer_factory, alias_generator));
+    return static_cast<int>(evaluate_query(*overall_query_plan, writer_factory, alias_generator));
 }

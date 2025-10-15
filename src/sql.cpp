@@ -37,8 +37,14 @@ int main(
         return 1;
     }
 
+    OverallQueryPlan overall_plan;
+    if (isatty(fileno(stdin)) != 1) {
+        overall_plan = load_query_plan(std::cin).value_or(OverallQueryPlan{});
+    }
     QueryPlan query_plan{};
     query_plan.sql.emplace(options.get_sql());
 
-    return static_cast<int>(dump_or_eval_query_plan(query_plan));
+    overall_plan.add_plan(query_plan);
+
+    return static_cast<int>(dump_or_eval_query_plan(overall_plan));
 }

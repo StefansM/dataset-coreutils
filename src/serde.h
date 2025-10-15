@@ -14,6 +14,7 @@ class WhereFragment;
 class LimitFragment;
 class OrderFragment;
 class SqlFragment;
+class OverallQueryPlan;
 
 class QueryParamSerDes final {
 public:
@@ -103,15 +104,26 @@ public:
     );
 };
 
-std::optional<QueryPlan> load_query_plan(
+class OverallQueryPlanSerDes final {
+public:
+    static Json::Value encode(
+        const OverallQueryPlan &overall_query_plan
+    );
+
+    static OverallQueryPlan decode(
+        const Json::Value &root
+    );
+};
+
+std::optional<OverallQueryPlan> load_query_plan(
     std::istream &in
 );
 
 void dump_query_plan(
-    const QueryPlan &query_plan,
+    const OverallQueryPlan &query_plan,
     std::ostream &out
 );
 
 ExitStatus dump_or_eval_query_plan(
-    const QueryPlan &query_plan
+    const OverallQueryPlan &query_plan
 );
