@@ -50,11 +50,16 @@ int main(
         return 1;
     }
 
-    auto &query_plan = overall_query_plan->get_plans().back();
-    query_plan.select.emplace(
-        query_plan.select->get_tablenames(),
+    auto &select = overall_query_plan->get_plans().back();
+    if (!select.select.has_value()) {
+        std::cerr << "No SELECT fragment in final query plan.\n";
+        return 1;
+    }
+
+    select.select.emplace(
+        select.select->get_tablenames(),
         options.get_fields(),
-        query_plan.select->get_alias()
+        select.select->get_alias()
     );
 
     return static_cast<int>(dump_or_eval_query_plan(*overall_query_plan));
